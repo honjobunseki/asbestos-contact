@@ -32,80 +32,66 @@ app.get('/', (c) => {
 
             <!-- メインフォーム -->
             <div class="bg-white rounded-lg shadow-lg p-6">
-                <!-- タブ切り替え -->
-                <div class="flex border-b border-gray-200 mb-6">
-                    <button 
-                        type="button"
-                        id="tab-search"
-                        class="tab-button px-6 py-3 font-semibold text-blue-600 border-b-2 border-blue-600"
-                        onclick="switchTab('search')"
-                    >
-                        <i class="fas fa-search mr-2"></i>
-                        簡単検索
-                    </button>
-                    <button 
-                        type="button"
-                        id="tab-select"
-                        class="tab-button px-6 py-3 font-semibold text-gray-500"
-                        onclick="switchTab('select')"
-                    >
-                        <i class="fas fa-list mr-2"></i>
-                        プルダウン選択
-                    </button>
-                </div>
-
                 <form id="asbestosForm">
-                    <!-- 簡単検索タブ -->
-                    <div id="search-tab" class="tab-content">
-                        <div class="mb-6">
-                            <label class="block text-gray-700 font-semibold mb-2">
-                                <i class="fas fa-map-marker-alt text-red-500 mr-1"></i>
-                                市区町村名を入力
-                            </label>
-                            <input 
-                                type="text" 
-                                id="citySearchInput"
-                                placeholder="例: 本庄、渋谷、横浜"
-                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition"
-                                autocomplete="off"
-                            >
-                            <p class="text-sm text-gray-500 mt-1">市区町村名を入力すると候補が表示されます</p>
-                            
-                            <!-- 候補リスト -->
-                            <div id="suggestions" class="mt-2 bg-white border border-gray-300 rounded-lg shadow-lg hidden max-h-60 overflow-y-auto">
-                                <!-- 候補がここに表示される -->
+                    <!-- 2カラムレイアウト -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <!-- 左カラム: 簡単検索 -->
+                        <div class="border-r border-gray-200 pr-6">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4">
+                                <i class="fas fa-search text-blue-500 mr-2"></i>
+                                簡単検索
+                            </h3>
+                            <div class="mb-4">
+                                <label class="block text-gray-700 font-semibold mb-2">
+                                    市区町村名を入力
+                                </label>
+                                <input 
+                                    type="text" 
+                                    id="citySearchInput"
+                                    placeholder="例: 本庄、渋谷、横浜"
+                                    class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition"
+                                    autocomplete="off"
+                                >
+                                <p class="text-sm text-gray-500 mt-1">入力すると候補が表示されます</p>
+                                
+                                <!-- 候補リスト -->
+                                <div id="suggestions" class="mt-2 bg-white border border-gray-300 rounded-lg shadow-lg hidden max-h-60 overflow-y-auto">
+                                    <!-- 候補がここに表示される -->
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- プルダウン選択タブ -->
-                    <div id="select-tab" class="tab-content hidden">
-                        <div class="mb-6">
-                            <label class="block text-gray-700 font-semibold mb-2">
-                                <i class="fas fa-map-marked-alt text-blue-500 mr-1"></i>
-                                都道府県を選択
-                            </label>
-                            <select 
-                                id="prefectureSelect"
-                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition"
-                            >
-                                <option value="">選択してください</option>
-                                <!-- 都道府県リストはJavaScriptで追加 -->
-                            </select>
-                        </div>
+                        <!-- 右カラム: プルダウン選択 -->
+                        <div class="pl-6">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4">
+                                <i class="fas fa-list text-green-500 mr-2"></i>
+                                プルダウン選択
+                            </h3>
+                            <div class="mb-4">
+                                <label class="block text-gray-700 font-semibold mb-2">
+                                    都道府県を選択
+                                </label>
+                                <select 
+                                    id="prefectureSelect"
+                                    class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition"
+                                >
+                                    <option value="">選択してください</option>
+                                    <!-- 都道府県リストはJavaScriptで追加 -->
+                                </select>
+                            </div>
 
-                        <div class="mb-6">
-                            <label class="block text-gray-700 font-semibold mb-2">
-                                <i class="fas fa-building text-green-500 mr-1"></i>
-                                市区町村を選択
-                            </label>
-                            <select 
-                                id="citySelect"
-                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition"
-                                disabled
-                            >
-                                <option value="">まず都道府県を選択してください</option>
-                            </select>
+                            <div class="mb-4">
+                                <label class="block text-gray-700 font-semibold mb-2">
+                                    市区町村を選択
+                                </label>
+                                <select 
+                                    id="citySelect"
+                                    class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition"
+                                    disabled
+                                >
+                                    <option value="">まず都道府県を選択</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
 
@@ -174,39 +160,74 @@ app.get('/', (c) => {
         </div>
 
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
-        <script type="module">
-            // 全国の都道府県・市区町村データをインポート
-            import { citiesData, citiesFlatList, prefectures } from '/static/cities-data.js';
+        <script>
+            // 全国の都道府県・市区町村データ（主要都市版）
+            const citiesData = {
+              "北海道": ["札幌市", "函館市", "旭川市"],
+              "青森県": ["青森市", "弘前市", "八戸市"],
+              "岩手県": ["盛岡市", "宮古市", "一関市"],
+              "宮城県": ["仙台市", "石巻市", "多賀城市"],
+              "秋田県": ["秋田市", "能代市", "横手市"],
+              "山形県": ["山形市", "米沢市", "鶴岡市"],
+              "福島県": ["福島市", "会津若松市", "郡山市", "いわき市"],
+              "茨城県": ["水戸市", "日立市", "つくば市"],
+              "栃木県": ["宇都宮市", "足利市", "栃木市"],
+              "群馬県": ["前橋市", "高崎市", "桐生市"],
+              "埼玉県": ["さいたま市", "川越市", "熊谷市", "川口市", "所沢市", "本庄市", "春日部市", "草加市", "越谷市", "蕨市", "戸田市"],
+              "千葉県": ["千葉市", "市川市", "船橋市", "松戸市", "柏市", "市原市", "流山市", "浦安市"],
+              "東京都": ["千代田区", "中央区", "港区", "新宿区", "文京区", "台東区", "墨田区", "江東区", "品川区", "目黒区", "大田区", "世田谷区", "渋谷区", "中野区", "杉並区", "豊島区", "北区", "荒川区", "板橋区", "練馬区", "足立区", "葛飾区", "江戸川区", "八王子市", "立川市", "武蔵野市", "三鷹市", "府中市", "調布市", "町田市"],
+              "神奈川県": ["横浜市", "川崎市", "相模原市", "横須賀市", "平塚市", "鎌倉市", "藤沢市", "小田原市", "茅ヶ崎市", "厚木市", "大和市"],
+              "新潟県": ["新潟市", "長岡市", "上越市"],
+              "富山県": ["富山市", "高岡市"],
+              "石川県": ["金沢市", "小松市"],
+              "福井県": ["福井市", "敦賀市"],
+              "山梨県": ["甲府市", "富士吉田市"],
+              "長野県": ["長野市", "松本市", "上田市", "飯田市", "佐久市"],
+              "岐阜県": ["岐阜市", "大垣市", "高山市"],
+              "静岡県": ["静岡市", "浜松市", "沼津市", "富士市"],
+              "愛知県": ["名古屋市", "豊橋市", "岡崎市", "一宮市", "豊田市", "春日井市", "豊川市"],
+              "三重県": ["津市", "四日市市", "伊勢市"],
+              "滋賀県": ["大津市", "彦根市", "草津市"],
+              "京都府": ["京都市", "宇治市", "亀岡市"],
+              "大阪府": ["大阪市", "堺市", "岸和田市", "豊中市", "吹田市", "高槻市", "枚方市", "茨木市", "八尾市", "東大阪市"],
+              "兵庫県": ["神戸市", "姫路市", "尼崎市", "明石市", "西宮市", "宝塚市"],
+              "奈良県": ["奈良市", "橿原市", "生駒市"],
+              "和歌山県": ["和歌山市", "田辺市"],
+              "鳥取県": ["鳥取市", "米子市"],
+              "島根県": ["松江市", "出雲市"],
+              "岡山県": ["岡山市", "倉敷市", "津山市"],
+              "広島県": ["広島市", "呉市", "福山市", "東広島市"],
+              "山口県": ["下関市", "宇部市", "山口市"],
+              "徳島県": ["徳島市", "鳴門市"],
+              "香川県": ["高松市", "丸亀市"],
+              "愛媛県": ["松山市", "今治市", "新居浜市"],
+              "高知県": ["高知市", "南国市"],
+              "福岡県": ["北九州市", "福岡市", "久留米市", "飯塚市", "大牟田市", "筑紫野市", "春日市", "大野城市"],
+              "佐賀県": ["佐賀市", "唐津市", "鳥栖市"],
+              "長崎県": ["長崎市", "佐世保市", "諫早市"],
+              "熊本県": ["熊本市", "八代市", "天草市"],
+              "大分県": ["大分市", "別府市"],
+              "宮崎県": ["宮崎市", "都城市"],
+              "鹿児島県": ["鹿児島市", "霧島市"],
+              "沖縄県": ["那覇市", "沖縄市", "うるま市"]
+            };
+            
+            // 検索用のフラットなリスト
+            const citiesFlatList = [];
+            Object.entries(citiesData).forEach(([prefecture, cities]) => {
+                cities.forEach(city => {
+                    citiesFlatList.push({
+                        prefecture,
+                        city,
+                        fullName: prefecture + city
+                    });
+                });
+            });
+            
+            const prefectures = Object.keys(citiesData);
 
             // グローバル変数
             let selectedCity = '';
-            let currentTab = 'search';
-
-            // タブ切り替え関数
-            window.switchTab = function(tab) {
-                currentTab = tab;
-                
-                // タブボタンのスタイル切り替え
-                document.querySelectorAll('.tab-button').forEach(btn => {
-                    btn.classList.remove('text-blue-600', 'border-b-2', 'border-blue-600');
-                    btn.classList.add('text-gray-500');
-                });
-                
-                if (tab === 'search') {
-                    document.getElementById('tab-search').classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
-                    document.getElementById('tab-search').classList.remove('text-gray-500');
-                } else {
-                    document.getElementById('tab-select').classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
-                    document.getElementById('tab-select').classList.remove('text-gray-500');
-                }
-                
-                // コンテンツの表示切り替え
-                document.getElementById('search-tab').classList.toggle('hidden', tab !== 'search');
-                document.getElementById('select-tab').classList.toggle('hidden', tab !== 'select');
-                
-                // 入力フィールドをクリア
-                selectedCity = '';
-            };
 
             // 都道府県セレクトボックスを初期化
             const prefectureSelect = document.getElementById('prefectureSelect');
@@ -337,20 +358,17 @@ app.get('/', (c) => {
                 }
             }
 
-            // フォーム送信処理
+            // フォーム送信処理（プルダウン選択時）
             document.getElementById('asbestosForm').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 
-                // プルダウン選択タブの場合、selectedCityを更新
-                if (currentTab === 'select') {
-                    const prefecture = document.getElementById('prefectureSelect').value;
-                    const city = document.getElementById('citySelect').value;
-                    if (prefecture && city) {
-                        selectedCity = prefecture + city;
-                    }
+                // プルダウンから選択された場合
+                const prefecture = document.getElementById('prefectureSelect').value;
+                const city = document.getElementById('citySelect').value;
+                if (prefecture && city) {
+                    selectedCity = prefecture + city;
+                    await performSearch();
                 }
-                
-                await performSearch();
             });
 
             function displayResult(data) {
