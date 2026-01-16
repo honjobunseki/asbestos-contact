@@ -186,35 +186,71 @@ app.get('/', (c) => {
                             </p>
                         </div>
 
+                        <!-- 担当部署 -->
                         <div>
                             <p class="font-semibold text-gray-700 mb-1">
                                 <i class="fas fa-building text-blue-500 mr-1"></i>
-                                担当部署:
+                                担当部署
                             </p>
                             <p class="text-gray-800 text-lg">\${data.department || '情報なし'}</p>
                         </div>
                         
+                        <!-- 電話番号 -->
                         <div>
                             <p class="font-semibold text-gray-700 mb-1">
                                 <i class="fas fa-phone text-green-500 mr-1"></i>
-                                電話番号:
+                                電話番号
                             </p>
-                            <p class="text-gray-800 text-lg">\${data.phone || '情報なし'}</p>
+                            <p class="text-gray-800 text-lg">
+                                <a href="tel:\${data.phone}" class="text-blue-600 hover:underline">
+                                    \${data.phone || '情報なし'}
+                                </a>
+                            </p>
                         </div>
                         
-                        <div>
-                            <p class="font-semibold text-gray-700 mb-2">
-                                <i class="fas fa-external-link-alt text-purple-500 mr-1"></i>
-                                問い合わせページ:
-                            </p>
-                            \${data.url ? \`
-                                <a href="\${data.url}" target="_blank" 
-                                   class="inline-block bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg transition transform hover:scale-105 shadow-md">
+                        <!-- メールアドレス -->
+                        \${data.email ? \`
+                            <div>
+                                <p class="font-semibold text-gray-700 mb-1">
+                                    <i class="fas fa-envelope text-purple-500 mr-1"></i>
+                                    メールアドレス
+                                </p>
+                                <p class="text-gray-800 text-lg">
+                                    <a href="mailto:\${data.email}" class="text-blue-600 hover:underline">
+                                        \${data.email}
+                                    </a>
+                                </p>
+                            </div>
+                        \` : ''}
+
+                        <!-- 問い合わせフォーム -->
+                        \${data.formUrl ? \`
+                            <div>
+                                <p class="font-semibold text-gray-700 mb-1">
+                                    <i class="fas fa-edit text-orange-500 mr-1"></i>
+                                    問い合わせフォーム
+                                </p>
+                                <p class="text-gray-800 text-lg">
+                                    <a href="\${data.formUrl}" target="_blank" class="text-blue-600 hover:underline">
+                                        \${data.formUrl}
+                                    </a>
+                                </p>
+                            </div>
+                        \` : ''}
+
+                        <!-- 区切り線 -->
+                        <div class="border-t-2 border-gray-200 my-4"></div>
+
+                        <!-- 公式ページを開くボタン（一番下） -->
+                        \${data.pageUrl ? \`
+                            <div class="text-center">
+                                <a href="\${data.pageUrl}" target="_blank" 
+                                   class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition transform hover:scale-105 shadow-lg">
                                     <i class="fas fa-external-link-alt mr-2"></i>
                                     公式ページを開く
                                 </a>
-                            \` : '<p class="text-gray-600">URLが見つかりませんでした</p>'}
-                        </div>
+                            </div>
+                        \` : '<p class="text-center text-gray-600">公式ページが見つかりませんでした</p>'}
 
                         <!-- AI回答の詳細（オプション） -->
                         \${data.aiResponse ? \`
@@ -266,12 +302,15 @@ app.post('/api/search', async (c) => {
 必ず以下の形式で回答してください：
 1. 担当部署名: 正式な部署名を記載
 2. 電話番号: ハイフン付きで記載（例: 03-1234-5678）
-3. 公式URL: 完全なURL（https://から始まる）を1つだけ記載。必ず現在アクセス可能なページのURLを選んでください。
+3. メールアドレス: もしあれば記載（例: kankyo@city.example.lg.jp）
+4. 問い合わせフォームURL: もしあれば、フォーム専用のURLを記載
+5. 公式ページURL: アスベスト関連ページのURL（完全なURL、https://から始まる）
 
 重要事項：
 - URLには引用番号（[1][2]など）や括弧（）を含めないでください
 - 最新の公式サイトの情報のみを使用してください
-- URLは問い合わせページまたはアスベスト関連ページへの直接リンクを優先してください`
+- 問い合わせフォームと公式ページは別々に記載してください
+- メールアドレスが見つからない場合は「なし」と記載してください`
 
     const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
@@ -338,10 +377,30 @@ function parseAIResponse(response: string, city: string) {
     return cleaned
   })
   
-  // 最も適切なURLを選択（長いものを優先、公式サイトらしいものを優先）
-  const bestUrl = cleanUrls
-    .filter(url => url.includes('city.') || url.includes('pref.') || url.includes('.lg.jp') || url.includes('.go.jp'))
-    .sort((a, b) => b.length - a.length)[0] || cleanUrls[0] || null
+  // フォームURLと一般URLを分類
+  const formUrls = cleanUrls.filter(url => 
+    url.includes('/form') || 
+    url.includes('/inquiry') || 
+    url.includes('/contact') ||
+    url.includes('/otoiawase') ||
+    url.includes('form') ||
+    url.includes('inquiry')
+  )
+  
+  const generalUrls = cleanUrls.filter(url => 
+    !formUrls.includes(url) && 
+    (url.includes('city.') || url.includes('pref.') || url.includes('.lg.jp') || url.includes('.go.jp'))
+  )
+  
+  // 最適なフォームURLを選択
+  const formUrl = formUrls.sort((a, b) => b.length - a.length)[0] || null
+  
+  // 最適な一般URLを選択（長いものを優先）
+  const pageUrl = generalUrls.sort((a, b) => b.length - a.length)[0] || cleanUrls[0] || null
+
+  // メールアドレスを抽出
+  const emailMatches = response.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g)
+  const email = emailMatches ? emailMatches[0] : null
 
   // 電話番号を抽出（日本の電話番号形式）
   const phoneMatches = response.match(/0\d{1,4}-\d{1,4}-\d{4}/g) || 
@@ -383,7 +442,9 @@ function parseAIResponse(response: string, city: string) {
   return {
     department: department || `${city} 環境課・公害対策課（要確認）`,
     phone: phone || '市区町村の代表電話にお問い合わせください',
-    url: bestUrl,
+    email: email,
+    formUrl: formUrl,
+    pageUrl: pageUrl,
     aiResponse: response,
     sources: cleanUrls
   }
