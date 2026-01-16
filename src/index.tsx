@@ -261,12 +261,17 @@ app.post('/api/search', async (c) => {
     }
 
     // Perplexity APIで検索
-    const prompt = `${city}のアスベスト（石綿）に関する通報・相談窓口の情報を教えてください。以下の情報を含めてください：
-1. 担当部署名（環境課、公害対策課など）
-2. 電話番号
-3. 問い合わせフォームまたは公式ページのURL
+    const prompt = `${city}のアスベスト（石綿）に関する通報・相談窓口の公式情報を教えてください。
 
-最新の正確な情報をお願いします。`
+必ず以下の形式で回答してください：
+1. 担当部署名: 正式な部署名を記載
+2. 電話番号: ハイフン付きで記載（例: 03-1234-5678）
+3. 公式URL: 完全なURL（https://から始まる）を1つだけ記載。必ず現在アクセス可能なページのURLを選んでください。
+
+重要事項：
+- URLには引用番号（[1][2]など）や括弧（）を含めないでください
+- 最新の公式サイトの情報のみを使用してください
+- URLは問い合わせページまたはアスベスト関連ページへの直接リンクを優先してください`
 
     const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
@@ -275,19 +280,21 @@ app.post('/api/search', async (c) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'sonar',
+        model: 'sonar-pro',  // より高精度なモデルを使用
         messages: [
           {
             role: 'system',
-            content: 'あなたは日本の行政情報に詳しいアシスタントです。最新の正確な情報を提供してください。'
+            content: 'あなたは日本の行政情報に詳しい専門アシスタントです。最新の公式サイトから正確な情報のみを提供してください。URLは必ず完全な形式で、引用番号などを含めずに記載してください。'
           },
           {
             role: 'user',
             content: prompt
           }
         ],
-        temperature: 0.2,
-        max_tokens: 500
+        temperature: 0.1,  // より確定的な回答を得る
+        max_tokens: 800,
+        search_domain_filter: ['go.jp', 'lg.jp'],  // 日本の公式ドメインに限定
+        return_citations: true  // 引用情報を返す
       })
     })
 
@@ -316,19 +323,53 @@ app.post('/api/search', async (c) => {
 
 // AIレスポンスをパースする関数
 function parseAIResponse(response: string, city: string) {
-  // URLを抽出
-  const urlMatch = response.match(/https?:\/\/[^\s\)]+/g)
-  const url = urlMatch ? urlMatch[0] : null
+  // URLを抽出して綺麗にする
+  const urlMatches = response.match(/https?:\/\/[^\s\)\]\}]+/g) || []
+  
+  // URLのクリーニング
+  const cleanUrls = urlMatches.map(url => {
+    // 引用番号や余計な文字を削除
+    let cleaned = url
+      .replace(/[\)）\]】\}]+$/g, '')  // 末尾の括弧を削除
+      .replace(/\[[0-9]+\]$/g, '')      // 末尾の引用番号を削除
+      .replace(/[、。，\.]+$/g, '')     // 末尾の句読点を削除
+      .replace(/）\[.*$/g, '')          // ）[... を削除
+    
+    return cleaned
+  })
+  
+  // 最も適切なURLを選択（長いものを優先、公式サイトらしいものを優先）
+  const bestUrl = cleanUrls
+    .filter(url => url.includes('city.') || url.includes('pref.') || url.includes('.lg.jp') || url.includes('.go.jp'))
+    .sort((a, b) => b.length - a.length)[0] || cleanUrls[0] || null
 
   // 電話番号を抽出（日本の電話番号形式）
-  const phoneMatch = response.match(/0\d{1,4}-?\d{1,4}-?\d{4}/g)
-  const phone = phoneMatch ? phoneMatch[0] : null
+  const phoneMatches = response.match(/0\d{1,4}-\d{1,4}-\d{4}/g) || 
+                       response.match(/0\d{9,10}/g)
+  
+  let phone = null
+  if (phoneMatches) {
+    // ハイフン付きを優先
+    phone = phoneMatches.find(p => p.includes('-')) || phoneMatches[0]
+    // ハイフンがない場合は追加
+    if (phone && !phone.includes('-')) {
+      // 03-1234-5678 のような形式に変換
+      if (phone.startsWith('0')) {
+        const areaCode = phone.substring(0, phone.length === 10 ? 3 : 4)
+        const rest = phone.substring(areaCode.length)
+        const middle = rest.substring(0, 4)
+        const last = rest.substring(4)
+        phone = `${areaCode}-${middle}-${last}`
+      }
+    }
+  }
 
-  // 部署名を抽出（環境、公害、建築などのキーワードを含む）
+  // 部署名を抽出
   let department = null
   const deptPatterns = [
-    /([^。、\n]*(?:環境|公害|建築|都市計画|まちづくり)[^。、\n]*(?:課|部|係|センター))/,
-    /担当[：:]\s*([^\n。、]+)/
+    /部署[名]?[：:]\s*([^\n。、]+)/,
+    /担当[部署]*[：:]\s*([^\n。、]+)/,
+    /([^\n。、]*(?:環境|公害|建築|都市計画|まちづくり|生活衛生)[^\n。、]*(?:課|部|係|センター|局))/,
   ]
   
   for (const pattern of deptPatterns) {
@@ -340,11 +381,11 @@ function parseAIResponse(response: string, city: string) {
   }
 
   return {
-    department: department || `${city} 環境課（要確認）`,
-    phone: phone || '代表電話にお問い合わせください',
-    url: url,
+    department: department || `${city} 環境課・公害対策課（要確認）`,
+    phone: phone || '市区町村の代表電話にお問い合わせください',
+    url: bestUrl,
     aiResponse: response,
-    sources: urlMatch || []
+    sources: cleanUrls
   }
 }
 
