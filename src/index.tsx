@@ -373,6 +373,22 @@ app.get('/', (c) => {
 
             function displayResult(data) {
                 const resultContent = document.getElementById('resultContent');
+                
+                // フォームデータを取得
+                const city = selectedCity;
+                const location = document.getElementById('location').value;
+                const details = document.getElementById('details').value;
+                
+                // メール本文を作成
+                const emailSubject = encodeURIComponent('アスベストに関する問い合わせ');
+                const emailBody = encodeURIComponent(
+                    '【市区町村】\\n' + city + '\\n\\n' +
+                    '【建物・場所の情報】\\n' + (location || '（未記入）') + '\\n\\n' +
+                    '【詳細情報】\\n' + (details || '（未記入）') + '\\n\\n' +
+                    '【担当部署】\\n' + (data.department || '') + '\\n\\n' +
+                    '※このメールは「アスベスト通報システム」から送信されています。'
+                );
+                
                 resultContent.innerHTML = \`
                     <div class="space-y-4">
                         <!-- 注意事項 -->
@@ -406,34 +422,48 @@ app.get('/', (c) => {
                         </div>
                         
                         <!-- メールアドレス -->
-                        \${data.email ? \`
-                            <div>
-                                <p class="font-semibold text-gray-700 mb-1">
-                                    <i class="fas fa-envelope text-purple-500 mr-1"></i>
-                                    メールアドレス
+                        <div>
+                            <p class="font-semibold text-gray-700 mb-1">
+                                <i class="fas fa-envelope text-purple-500 mr-1"></i>
+                                メールアドレス
+                            </p>
+                            \${data.email ? \`
+                                <a href="mailto:\${data.email}?subject=\${emailSubject}&body=\${emailBody}" 
+                                   class="inline-block bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg transition transform hover:scale-105 shadow-md mb-2">
+                                    <i class="fas fa-envelope mr-2"></i>
+                                    メールを送信
+                                </a>
+                                <p class="text-sm text-gray-600 mt-2">\${data.email}</p>
+                                <p class="text-xs text-gray-500 mt-1">※クリックするとメールアプリが起動し、件名と本文が自動入力されます</p>
+                            \` : \`
+                                <p class="text-gray-600 bg-gray-50 p-3 rounded-lg">
+                                    <i class="fas fa-info-circle text-blue-500 mr-1"></i>
+                                    メールアドレスが見つかりませんでした。電話またはFAXでお問い合わせください。
                                 </p>
-                                <p class="text-gray-800 text-lg">
-                                    <a href="mailto:\${data.email}" class="text-blue-600 hover:underline">
-                                        \${data.email}
-                                    </a>
-                                </p>
-                            </div>
-                        \` : ''}
+                            \`}
+                        </div>
 
                         <!-- 問い合わせフォーム -->
-                        \${data.formUrl ? \`
-                            <div>
-                                <p class="font-semibold text-gray-700 mb-1">
-                                    <i class="fas fa-edit text-orange-500 mr-1"></i>
-                                    問い合わせフォーム
+                        <div>
+                            <p class="font-semibold text-gray-700 mb-1">
+                                <i class="fas fa-edit text-orange-500 mr-1"></i>
+                                問い合わせフォーム
+                            </p>
+                            \${data.formUrl ? \`
+                                <a href="\${data.formUrl}" target="_blank" 
+                                   class="inline-block bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-6 rounded-lg transition transform hover:scale-105 shadow-md mb-2">
+                                    <i class="fas fa-external-link-alt mr-2"></i>
+                                    フォームを開く
+                                </a>
+                                <p class="text-sm text-gray-600 mt-2 break-all">\${data.formUrl}</p>
+                                <p class="text-xs text-gray-500 mt-1">※クリックすると問い合わせフォームが新しいタブで開きます</p>
+                            \` : \`
+                                <p class="text-gray-600 bg-gray-50 p-3 rounded-lg">
+                                    <i class="fas fa-info-circle text-blue-500 mr-1"></i>
+                                    オンライン問い合わせフォームが見つかりませんでした。電話またはメールでお問い合わせください。
                                 </p>
-                                <p class="text-gray-800 text-lg">
-                                    <a href="\${data.formUrl}" target="_blank" class="text-blue-600 hover:underline">
-                                        \${data.formUrl}
-                                    </a>
-                                </p>
-                            </div>
-                        \` : ''}
+                            \`}
+                        </div>
 
                         <!-- 区切り線 -->
                         <div class="border-t-2 border-gray-200 my-4"></div>
@@ -499,9 +529,15 @@ app.post('/api/search', async (c) => {
 必ず以下の形式で回答してください：
 1. 担当部署名: 正式な部署名を記載
 2. 電話番号: ハイフン付きで記載（例: 03-1234-5678）
-3. メールアドレス: もしあれば記載（例: kankyo@city.example.lg.jp）
-4. 問い合わせフォームURL: もしあれば、フォーム専用のURLを記載
+3. メールアドレス: 環境課、公害対策課、建築指導課などの部署のメールアドレスを探して記載（例: kankyo@city.example.lg.jp）
+4. 問い合わせフォームURL: メール送信フォーム、お問い合わせフォーム、相談フォームなどのURLを記載（form、inquiry、contact、otoiawase、mail などが含まれるURL）
 5. 公式ページURL: アスベスト関連ページのURL（完全なURL、https://から始まる）
+
+【超重要】メールアドレスと問い合わせフォームの検索：
+- メールアドレスは、部署の連絡先ページ、お問い合わせページなどに記載されていることが多い
+- 問い合わせフォームは「メール送信フォーム」「お問い合わせフォーム」「メールでのお問い合わせ」などの名称で提供されている
+- 市区町村の公式サイト内の「お問い合わせ」「連絡先」「各課連絡先」ページも確認してください
+- 大阪市、川崎市、横浜市などの例：メール送信フォーム、メールアドレスが公開されているケースがある
 
 【超重要】URLの記載方法：
 - URLには絶対に引用番号を付けないでください（NG例: https://example.com[1]）
@@ -512,7 +548,7 @@ app.post('/api/search', async (c) => {
 その他の重要事項：
 - 最新の公式サイトの情報のみを使用してください
 - 問い合わせフォームと公式ページは別々に記載してください
-- メールアドレスが見つからない場合は「なし」と記載してください`
+- メールアドレスや問い合わせフォームが見つからない場合は「なし」と明記してください`
 
     const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
@@ -595,8 +631,13 @@ function parseAIResponse(response: string, city: string) {
     url.includes('/inquiry') || 
     url.includes('/contact') ||
     url.includes('/otoiawase') ||
+    url.includes('/mail') ||
+    url.includes('/soudan') ||
     url.includes('form') ||
-    url.includes('inquiry')
+    url.includes('inquiry') ||
+    url.includes('mail.cgi') ||
+    url.includes('mail_form') ||
+    url.includes('contact_form')
   )
   
   const generalUrls = cleanUrls.filter(url => 
