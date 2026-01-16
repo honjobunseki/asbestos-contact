@@ -32,24 +32,81 @@ app.get('/', (c) => {
 
             <!-- メインフォーム -->
             <div class="bg-white rounded-lg shadow-lg p-6">
+                <!-- タブ切り替え -->
+                <div class="flex border-b border-gray-200 mb-6">
+                    <button 
+                        type="button"
+                        id="tab-search"
+                        class="tab-button px-6 py-3 font-semibold text-blue-600 border-b-2 border-blue-600"
+                        onclick="switchTab('search')"
+                    >
+                        <i class="fas fa-search mr-2"></i>
+                        簡単検索
+                    </button>
+                    <button 
+                        type="button"
+                        id="tab-select"
+                        class="tab-button px-6 py-3 font-semibold text-gray-500"
+                        onclick="switchTab('select')"
+                    >
+                        <i class="fas fa-list mr-2"></i>
+                        プルダウン選択
+                    </button>
+                </div>
+
                 <form id="asbestosForm">
-                    <!-- 市町村選択 -->
-                    <div class="mb-6">
-                        <label class="block text-gray-700 font-semibold mb-2">
-                            <i class="fas fa-map-marker-alt text-red-500 mr-1"></i>
-                            市町村を選択してください
-                        </label>
-                        <input 
-                            type="text" 
-                            id="cityInput"
-                            placeholder="例: 東京都渋谷区"
-                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition"
-                            list="cityList"
-                        >
-                        <datalist id="cityList">
-                            <!-- 市町村リストはJavaScriptで追加 -->
-                        </datalist>
-                        <p class="text-sm text-gray-500 mt-1">都道府県と市町村名を入力してください</p>
+                    <!-- 簡単検索タブ -->
+                    <div id="search-tab" class="tab-content">
+                        <div class="mb-6">
+                            <label class="block text-gray-700 font-semibold mb-2">
+                                <i class="fas fa-map-marker-alt text-red-500 mr-1"></i>
+                                市区町村名を入力
+                            </label>
+                            <input 
+                                type="text" 
+                                id="citySearchInput"
+                                placeholder="例: 本庄、渋谷、横浜"
+                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition"
+                                autocomplete="off"
+                            >
+                            <p class="text-sm text-gray-500 mt-1">市区町村名を入力すると候補が表示されます</p>
+                            
+                            <!-- 候補リスト -->
+                            <div id="suggestions" class="mt-2 bg-white border border-gray-300 rounded-lg shadow-lg hidden max-h-60 overflow-y-auto">
+                                <!-- 候補がここに表示される -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- プルダウン選択タブ -->
+                    <div id="select-tab" class="tab-content hidden">
+                        <div class="mb-6">
+                            <label class="block text-gray-700 font-semibold mb-2">
+                                <i class="fas fa-map-marked-alt text-blue-500 mr-1"></i>
+                                都道府県を選択
+                            </label>
+                            <select 
+                                id="prefectureSelect"
+                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition"
+                            >
+                                <option value="">選択してください</option>
+                                <!-- 都道府県リストはJavaScriptで追加 -->
+                            </select>
+                        </div>
+
+                        <div class="mb-6">
+                            <label class="block text-gray-700 font-semibold mb-2">
+                                <i class="fas fa-building text-green-500 mr-1"></i>
+                                市区町村を選択
+                            </label>
+                            <select 
+                                id="citySelect"
+                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition"
+                                disabled
+                            >
+                                <option value="">まず都道府県を選択してください</option>
+                            </select>
+                        </div>
                     </div>
 
                     <!-- アスベスト情報 -->
@@ -117,38 +174,144 @@ app.get('/', (c) => {
         </div>
 
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
-        <script>
-            // 市町村データ（サンプル - 後で拡張）
-            const cities = [
-                '北海道札幌市', '北海道函館市', '北海道旭川市',
-                '青森県青森市', '青森県八戸市',
-                '東京都千代田区', '東京都中央区', '東京都港区', '東京都新宿区', '東京都文京区',
-                '東京都台東区', '東京都墨田区', '東京都江東区', '東京都品川区', '東京都目黒区',
-                '東京都大田区', '東京都世田谷区', '東京都渋谷区', '東京都中野区', '東京都杉並区',
-                '神奈川県横浜市', '神奈川県川崎市', '神奈川県相模原市',
-                '大阪府大阪市', '大阪府堺市', '大阪府豊中市',
-                '愛知県名古屋市', '愛知県豊田市',
-                '福岡県福岡市', '福岡県北九州市'
-            ];
+        <script type="module">
+            // 全国の都道府県・市区町村データをインポート
+            import { citiesData, citiesFlatList, prefectures } from '/static/cities-data.js';
 
-            // datalistに市町村を追加
-            const datalist = document.getElementById('cityList');
-            cities.forEach(city => {
+            // グローバル変数
+            let selectedCity = '';
+            let currentTab = 'search';
+
+            // タブ切り替え関数
+            window.switchTab = function(tab) {
+                currentTab = tab;
+                
+                // タブボタンのスタイル切り替え
+                document.querySelectorAll('.tab-button').forEach(btn => {
+                    btn.classList.remove('text-blue-600', 'border-b-2', 'border-blue-600');
+                    btn.classList.add('text-gray-500');
+                });
+                
+                if (tab === 'search') {
+                    document.getElementById('tab-search').classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
+                    document.getElementById('tab-search').classList.remove('text-gray-500');
+                } else {
+                    document.getElementById('tab-select').classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
+                    document.getElementById('tab-select').classList.remove('text-gray-500');
+                }
+                
+                // コンテンツの表示切り替え
+                document.getElementById('search-tab').classList.toggle('hidden', tab !== 'search');
+                document.getElementById('select-tab').classList.toggle('hidden', tab !== 'select');
+                
+                // 入力フィールドをクリア
+                selectedCity = '';
+            };
+
+            // 都道府県セレクトボックスを初期化
+            const prefectureSelect = document.getElementById('prefectureSelect');
+            prefectures.forEach(pref => {
                 const option = document.createElement('option');
-                option.value = city;
-                datalist.appendChild(option);
+                option.value = pref;
+                option.textContent = pref;
+                prefectureSelect.appendChild(option);
             });
 
-            // フォーム送信処理
-            document.getElementById('asbestosForm').addEventListener('submit', async (e) => {
-                e.preventDefault();
+            // 都道府県変更時に市区町村を更新
+            prefectureSelect.addEventListener('change', (e) => {
+                const prefecture = e.target.value;
+                const citySelect = document.getElementById('citySelect');
+                
+                // 市区町村セレクトをクリア
+                citySelect.innerHTML = '<option value="">選択してください</option>';
+                citySelect.disabled = !prefecture;
+                
+                if (prefecture && citiesData[prefecture]) {
+                    citiesData[prefecture].forEach(city => {
+                        const option = document.createElement('option');
+                        option.value = city;
+                        option.textContent = city;
+                        citySelect.appendChild(option);
+                    });
+                }
+                
+                selectedCity = '';
+            });
 
-                const city = document.getElementById('cityInput').value;
+            // 市区町村選択時
+            document.getElementById('citySelect').addEventListener('change', (e) => {
+                const prefecture = prefectureSelect.value;
+                const city = e.target.value;
+                if (prefecture && city) {
+                    selectedCity = prefecture + city;
+                }
+            });
+
+            // インクリメンタルサーチ
+            const searchInput = document.getElementById('citySearchInput');
+            const suggestionsDiv = document.getElementById('suggestions');
+            
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.trim();
+                
+                if (query.length === 0) {
+                    suggestionsDiv.classList.add('hidden');
+                    return;
+                }
+                
+                // 候補を検索
+                const matches = citiesFlatList.filter(item => 
+                    item.city.includes(query) || 
+                    item.fullName.includes(query) ||
+                    item.prefecture.includes(query)
+                ).slice(0, 10); // 最大10件
+                
+                if (matches.length === 0) {
+                    suggestionsDiv.innerHTML = '<div class="p-3 text-gray-500">候補が見つかりませんでした</div>';
+                    suggestionsDiv.classList.remove('hidden');
+                    return;
+                }
+                
+                // 候補を表示
+                suggestionsDiv.innerHTML = matches.map(item => \`
+                    <div class="suggestion-item p-3 hover:bg-blue-50 cursor-pointer border-b border-gray-200 last:border-b-0"
+                         data-fullname="\${item.fullName}">
+                        <span class="text-gray-600">\${item.prefecture}</span>
+                        <span class="font-semibold text-gray-800">\${item.city}</span>
+                    </div>
+                \`).join('');
+                
+                // 候補クリック時のイベント
+                document.querySelectorAll('.suggestion-item').forEach(item => {
+                    item.addEventListener('click', async () => {
+                        const fullName = item.dataset.fullname;
+                        selectedCity = fullName;
+                        searchInput.value = fullName;
+                        suggestionsDiv.classList.add('hidden');
+                        
+                        // 自動で検索実行
+                        await performSearch();
+                    });
+                });
+                
+                suggestionsDiv.classList.remove('hidden');
+            });
+
+            // 候補リスト外をクリックしたら閉じる
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !suggestionsDiv.contains(e.target)) {
+                    suggestionsDiv.classList.add('hidden');
+                }
+            });
+
+            // 検索実行関数
+            async function performSearch() {
+                const city = selectedCity;
                 const location = document.getElementById('location').value;
                 const details = document.getElementById('details').value;
 
                 if (!city) {
-                    alert('市町村を入力してください');
+                    alert('市区町村を選択してください');
                     return;
                 }
 
@@ -157,7 +320,7 @@ app.get('/', (c) => {
                 document.getElementById('resultArea').classList.add('hidden');
 
                 try {
-                    // API呼び出し（後で実装）
+                    // API呼び出し
                     const response = await axios.post('/api/search', {
                         city: city,
                         location: location,
@@ -172,6 +335,22 @@ app.get('/', (c) => {
                 } finally {
                     document.getElementById('loading').classList.add('hidden');
                 }
+            }
+
+            // フォーム送信処理
+            document.getElementById('asbestosForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                // プルダウン選択タブの場合、selectedCityを更新
+                if (currentTab === 'select') {
+                    const prefecture = document.getElementById('prefectureSelect').value;
+                    const city = document.getElementById('citySelect').value;
+                    if (prefecture && city) {
+                        selectedCity = prefecture + city;
+                    }
+                }
+                
+                await performSearch();
             });
 
             function displayResult(data) {
