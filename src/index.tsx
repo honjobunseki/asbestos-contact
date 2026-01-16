@@ -1,7 +1,8 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import type { Bindings } from './types'
 
-const app = new Hono()
+const app = new Hono<{ Bindings: Bindings }>()
 
 // CORS設定（API用）
 app.use('/api/*', cors())
@@ -176,25 +177,57 @@ app.get('/', (c) => {
             function displayResult(data) {
                 const resultContent = document.getElementById('resultContent');
                 resultContent.innerHTML = \`
-                    <div class="space-y-3">
-                        <div>
-                            <p class="font-semibold text-gray-700">担当部署:</p>
-                            <p class="text-gray-800">\${data.department || '情報なし'}</p>
+                    <div class="space-y-4">
+                        <!-- 注意事項 -->
+                        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-3 mb-4">
+                            <p class="text-sm text-yellow-800">
+                                <i class="fas fa-exclamation-triangle mr-1"></i>
+                                この情報はAIによる自動検索結果です。必ず公式サイトで最新情報をご確認ください。
+                            </p>
                         </div>
+
                         <div>
-                            <p class="font-semibold text-gray-700">電話番号:</p>
-                            <p class="text-gray-800">\${data.phone || '情報なし'}</p>
+                            <p class="font-semibold text-gray-700 mb-1">
+                                <i class="fas fa-building text-blue-500 mr-1"></i>
+                                担当部署:
+                            </p>
+                            <p class="text-gray-800 text-lg">\${data.department || '情報なし'}</p>
                         </div>
+                        
                         <div>
-                            <p class="font-semibold text-gray-700">問い合わせフォーム:</p>
+                            <p class="font-semibold text-gray-700 mb-1">
+                                <i class="fas fa-phone text-green-500 mr-1"></i>
+                                電話番号:
+                            </p>
+                            <p class="text-gray-800 text-lg">\${data.phone || '情報なし'}</p>
+                        </div>
+                        
+                        <div>
+                            <p class="font-semibold text-gray-700 mb-2">
+                                <i class="fas fa-external-link-alt text-purple-500 mr-1"></i>
+                                問い合わせページ:
+                            </p>
                             \${data.url ? \`
                                 <a href="\${data.url}" target="_blank" 
-                                   class="inline-block mt-2 bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition">
+                                   class="inline-block bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg transition transform hover:scale-105 shadow-md">
                                     <i class="fas fa-external-link-alt mr-2"></i>
-                                    問い合わせページを開く
+                                    公式ページを開く
                                 </a>
-                            \` : '<p class="text-gray-800">情報なし</p>'}
+                            \` : '<p class="text-gray-600">URLが見つかりませんでした</p>'}
                         </div>
+
+                        <!-- AI回答の詳細（オプション） -->
+                        \${data.aiResponse ? \`
+                            <details class="mt-4">
+                                <summary class="cursor-pointer text-sm text-blue-600 hover:text-blue-800">
+                                    <i class="fas fa-info-circle mr-1"></i>
+                                    AI検索結果の詳細を見る
+                                </summary>
+                                <div class="mt-2 p-3 bg-gray-50 rounded text-sm text-gray-700 whitespace-pre-wrap">
+                                    \${data.aiResponse}
+                                </div>
+                            </details>
+                        \` : ''}
                     </div>
                 \`;
                 document.getElementById('resultArea').classList.remove('hidden');
@@ -205,16 +238,114 @@ app.get('/', (c) => {
   `)
 })
 
-// API: 問い合わせ先検索（仮実装）
+// API: 問い合わせ先検索（Perplexity API使用）
 app.post('/api/search', async (c) => {
-  const { city, location, details } = await c.req.json()
-  
-  // 仮のレスポンス（後でAI APIと連携）
-  return c.json({
-    department: city + ' 環境課',
-    phone: '03-1234-5678',
-    url: 'https://example.com/contact'
-  })
+  try {
+    const { city, location, details } = await c.req.json()
+    
+    if (!city) {
+      return c.json({ error: '市町村名を入力してください' }, 400)
+    }
+
+    // Perplexity APIキーを取得
+    const apiKey = c.env.PERPLEXITY_API_KEY
+    
+    if (!apiKey) {
+      console.error('PERPLEXITY_API_KEY is not set')
+      return c.json({ 
+        error: 'APIキーが設定されていません',
+        department: city + ' の環境課・公害対策課',
+        phone: '市役所の代表電話にお問い合わせください',
+        url: null
+      }, 500)
+    }
+
+    // Perplexity APIで検索
+    const prompt = `${city}のアスベスト（石綿）に関する通報・相談窓口の情報を教えてください。以下の情報を含めてください：
+1. 担当部署名（環境課、公害対策課など）
+2. 電話番号
+3. 問い合わせフォームまたは公式ページのURL
+
+最新の正確な情報をお願いします。`
+
+    const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'sonar',
+        messages: [
+          {
+            role: 'system',
+            content: 'あなたは日本の行政情報に詳しいアシスタントです。最新の正確な情報を提供してください。'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.2,
+        max_tokens: 500
+      })
+    })
+
+    if (!perplexityResponse.ok) {
+      throw new Error(`Perplexity API error: ${perplexityResponse.status}`)
+    }
+
+    const data = await perplexityResponse.json()
+    const aiResponse = data.choices[0].message.content
+
+    // レスポンスから情報を抽出
+    const result = parseAIResponse(aiResponse, city)
+    
+    return c.json(result)
+    
+  } catch (error) {
+    console.error('Search error:', error)
+    return c.json({ 
+      error: '検索中にエラーが発生しました',
+      department: '情報を取得できませんでした',
+      phone: '市役所の代表電話にお問い合わせください',
+      url: null
+    }, 500)
+  }
 })
+
+// AIレスポンスをパースする関数
+function parseAIResponse(response: string, city: string) {
+  // URLを抽出
+  const urlMatch = response.match(/https?:\/\/[^\s\)]+/g)
+  const url = urlMatch ? urlMatch[0] : null
+
+  // 電話番号を抽出（日本の電話番号形式）
+  const phoneMatch = response.match(/0\d{1,4}-?\d{1,4}-?\d{4}/g)
+  const phone = phoneMatch ? phoneMatch[0] : null
+
+  // 部署名を抽出（環境、公害、建築などのキーワードを含む）
+  let department = null
+  const deptPatterns = [
+    /([^。、\n]*(?:環境|公害|建築|都市計画|まちづくり)[^。、\n]*(?:課|部|係|センター))/,
+    /担当[：:]\s*([^\n。、]+)/
+  ]
+  
+  for (const pattern of deptPatterns) {
+    const match = response.match(pattern)
+    if (match) {
+      department = match[1].trim()
+      break
+    }
+  }
+
+  return {
+    department: department || `${city} 環境課（要確認）`,
+    phone: phone || '代表電話にお問い合わせください',
+    url: url,
+    aiResponse: response,
+    sources: urlMatch || []
+  }
+}
 
 export default app
