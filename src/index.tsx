@@ -216,6 +216,13 @@ app.get('/', (c) => {
                 citySelect.disabled = !prefecture;
                 
                 if (prefecture && citiesData[prefecture]) {
+                    // 最初に「全域」オプションを追加
+                    const allOption = document.createElement('option');
+                    allOption.value = '全域';
+                    allOption.textContent = prefecture + '全域';
+                    citySelect.appendChild(allOption);
+                    
+                    // 市区町村リストを追加
                     citiesData[prefecture].forEach(city => {
                         const option = document.createElement('option');
                         option.value = city;
@@ -249,12 +256,25 @@ app.get('/', (c) => {
                     return;
                 }
                 
-                // 候補を検索
-                const matches = citiesFlatList.filter(item => 
+                // 都道府県名での検索
+                const prefectureMatches = prefectures.filter(pref => 
+                    pref.includes(query)
+                ).map(pref => ({
+                    prefecture: pref,
+                    city: '全域',
+                    fullName: pref + '全域',
+                    isPrefecture: true
+                }));
+                
+                // 市区町村での検索
+                const cityMatches = citiesFlatList.filter(item => 
                     item.city.includes(query) || 
                     item.fullName.includes(query) ||
                     item.prefecture.includes(query)
-                ).slice(0, 10); // 最大10件
+                );
+                
+                // 都道府県全域を最初に、その後に市区町村
+                const matches = [...prefectureMatches, ...cityMatches].slice(0, 10);
                 
                 if (matches.length === 0) {
                     suggestionsDiv.innerHTML = '<div class="p-3 text-gray-500">候補が見つかりませんでした</div>';
@@ -264,10 +284,11 @@ app.get('/', (c) => {
                 
                 // 候補を表示
                 suggestionsDiv.innerHTML = matches.map(item => \`
-                    <div class="suggestion-item p-3 hover:bg-blue-50 cursor-pointer border-b border-gray-200 last:border-b-0"
+                    <div class="suggestion-item p-3 hover:bg-blue-50 cursor-pointer border-b border-gray-200 last:border-b-0 \${item.isPrefecture ? 'bg-green-50' : ''}"
                          data-fullname="\${item.fullName}">
                         <span class="text-gray-600">\${item.prefecture}</span>
                         <span class="font-semibold text-gray-800">\${item.city}</span>
+                        \${item.isPrefecture ? '<span class="ml-2 text-xs bg-green-600 text-white px-2 py-1 rounded">都道府県全域</span>' : ''}
                     </div>
                 \`).join('');
                 
@@ -362,9 +383,11 @@ app.get('/', (c) => {
             function renderTabs() {
                 const tabButtons = document.getElementById('tabButtons');
                 const historyTabs = document.getElementById('historyTabs');
+                const resultArea = document.getElementById('resultArea');
                 
                 if (searchHistory.length === 0) {
                     historyTabs.classList.add('hidden');
+                    resultArea.classList.add('hidden');
                     return;
                 }
                 
@@ -373,12 +396,21 @@ app.get('/', (c) => {
                 tabButtons.innerHTML = searchHistory.map(item => {
                     const isActive = item.city === currentActiveTab;
                     return \`
-                        <button 
-                            class="tab-button px-4 py-2 rounded-t-lg font-semibold transition whitespace-nowrap \${isActive ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}"
-                            data-city="\${item.city}"
-                        >
-                            \${item.cityNameOnly}
-                        </button>
+                        <div class="relative inline-block">
+                            <button 
+                                class="tab-button px-4 py-2 pr-8 rounded-t-lg font-semibold transition whitespace-nowrap \${isActive ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}"
+                                data-city="\${item.city}"
+                            >
+                                \${item.cityNameOnly}
+                            </button>
+                            <button 
+                                class="delete-tab-button absolute right-1 top-1/2 transform -translate-y-1/2 w-5 h-5 rounded-full \${isActive ? 'bg-white text-blue-600 hover:bg-gray-100' : 'bg-gray-400 text-white hover:bg-gray-500'} flex items-center justify-center text-xs font-bold transition"
+                                data-city="\${item.city}"
+                                title="削除"
+                            >
+                                ×
+                            </button>
+                        </div>
                     \`;
                 }).join('');
                 
@@ -394,6 +426,38 @@ app.get('/', (c) => {
                         }
                     });
                 });
+                
+                // 削除ボタンクリックイベント
+                document.querySelectorAll('.delete-tab-button').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        e.stopPropagation(); // タブクリックイベントを防ぐ
+                        const city = button.dataset.city;
+                        deleteFromHistory(city);
+                    });
+                });
+            }
+            
+            // 履歴から削除
+            function deleteFromHistory(city) {
+                // 履歴から削除
+                searchHistory = searchHistory.filter(item => item.city !== city);
+                localStorage.setItem('searchHistory', JSON.stringify(searchHistory));
+                
+                // 削除したタブがアクティブだった場合
+                if (currentActiveTab === city) {
+                    if (searchHistory.length > 0) {
+                        // 最初のタブをアクティブに
+                        currentActiveTab = searchHistory[0].city;
+                        displayResult(searchHistory[0].data, searchHistory[0].city);
+                    } else {
+                        // 履歴が空の場合
+                        currentActiveTab = null;
+                        document.getElementById('resultArea').classList.add('hidden');
+                    }
+                }
+                
+                // タブを再描画
+                renderTabs();
             }
 
             // ページ読み込み時に履歴タブを表示
