@@ -7,6 +7,259 @@ const app = new Hono<{ Bindings: Bindings }>()
 // CORS設定（API用）
 app.use('/api/*', cors())
 
+// 管理画面
+app.get('/admin', (c) => {
+  return c.html(`
+    <!DOCTYPE html>
+    <html lang="ja">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>検索ログ管理 - アスベスト通報システム</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    </head>
+    <body class="bg-gray-100 min-h-screen">
+        <div class="container mx-auto px-4 py-8 max-w-6xl">
+            <!-- ヘッダー -->
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h1 class="text-3xl font-bold text-gray-800 mb-2">
+                            <i class="fas fa-chart-bar text-blue-500 mr-2"></i>
+                            検索ログ管理
+                        </h1>
+                        <p class="text-gray-600">Perplexity API検索の成功/失敗を確認できます</p>
+                    </div>
+                    <a href="/" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition">
+                        <i class="fas fa-home mr-2"></i>
+                        ホームに戻る
+                    </a>
+                </div>
+            </div>
+
+            <!-- 統計情報 -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <div class="text-gray-600 text-sm mb-1">総検索数</div>
+                    <div id="totalCount" class="text-3xl font-bold text-blue-600">-</div>
+                </div>
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <div class="text-gray-600 text-sm mb-1">成功（手動DB）</div>
+                    <div id="manualCount" class="text-3xl font-bold text-green-600">-</div>
+                </div>
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <div class="text-gray-600 text-sm mb-1">成功（API）</div>
+                    <div id="apiSuccessCount" class="text-3xl font-bold text-blue-600">-</div>
+                </div>
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <div class="text-gray-600 text-sm mb-1">失敗</div>
+                    <div id="failedCount" class="text-3xl font-bold text-red-600">-</div>
+                </div>
+            </div>
+
+            <!-- フィルター -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <div class="flex gap-4 items-center flex-wrap">
+                    <div>
+                        <label class="block text-gray-700 font-semibold mb-2">フィルター</label>
+                        <select id="filterType" class="px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none">
+                            <option value="all">すべて</option>
+                            <option value="manual">手動DB</option>
+                            <option value="api-success">API成功</option>
+                            <option value="api-failed">API失敗</option>
+                            <option value="incomplete">情報不完全（電話/メール/フォームなし）</option>
+                        </select>
+                    </div>
+                    <div class="mt-auto">
+                        <button id="clearLogsBtn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition">
+                            <i class="fas fa-trash mr-2"></i>
+                            ログをクリア
+                        </button>
+                    </div>
+                    <div class="mt-auto">
+                        <button id="exportBtn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition">
+                            <i class="fas fa-download mr-2"></i>
+                            JSONエクスポート
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ログテーブル -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">
+                    <i class="fas fa-list mr-2"></i>
+                    検索ログ一覧
+                </h2>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">市町村名</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ソース</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ステータス</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">電話</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">メール</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">フォーム</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">検索日時</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logsTableBody" class="bg-white divide-y divide-gray-200">
+                            <tr>
+                                <td colspan="7" class="px-6 py-4 text-center text-gray-500">
+                                    ログを読み込み中...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+        <script>
+            let allLogs = [];
+
+            async function loadLogs() {
+                try {
+                    const response = await axios.get('/api/search-logs');
+                    allLogs = response.data;
+                    updateStats();
+                    renderLogs();
+                } catch (error) {
+                    console.error('Error loading logs:', error);
+                    alert('ログの読み込みに失敗しました');
+                }
+            }
+
+            function updateStats() {
+                const total = allLogs.length;
+                const manual = allLogs.filter(log => log.source === 'manual').length;
+                const apiSuccess = allLogs.filter(log => log.source === 'api' && log.success).length;
+                const failed = allLogs.filter(log => !log.success).length;
+
+                document.getElementById('totalCount').textContent = total;
+                document.getElementById('manualCount').textContent = manual;
+                document.getElementById('apiSuccessCount').textContent = apiSuccess;
+                document.getElementById('failedCount').textContent = failed;
+            }
+
+            function renderLogs() {
+                const filterType = document.getElementById('filterType').value;
+                let filteredLogs = allLogs;
+
+                // フィルタリング
+                if (filterType === 'manual') {
+                    filteredLogs = allLogs.filter(log => log.source === 'manual');
+                } else if (filterType === 'api-success') {
+                    filteredLogs = allLogs.filter(log => log.source === 'api' && log.success);
+                } else if (filterType === 'api-failed') {
+                    filteredLogs = allLogs.filter(log => !log.success);
+                } else if (filterType === 'incomplete') {
+                    filteredLogs = allLogs.filter(log => !log.hasPhone || !log.hasEmail || !log.hasFormUrl);
+                }
+
+                const tbody = document.getElementById('logsTableBody');
+                
+                if (filteredLogs.length === 0) {
+                    tbody.innerHTML = \`
+                        <tr>
+                            <td colspan="7" class="px-6 py-4 text-center text-gray-500">
+                                ログがありません
+                            </td>
+                        </tr>
+                    \`;
+                    return;
+                }
+
+                tbody.innerHTML = filteredLogs.map(log => \`
+                    <tr class="\${!log.success ? 'bg-red-50' : ''}">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900">\${log.city}</div>
+                            \${log.error ? \`<div class="text-xs text-red-600">\${log.error}</div>\` : ''}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full \${log.source === 'manual' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}">
+                                \${log.source === 'manual' ? '手動DB' : 'API'}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full \${log.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                \${log.success ? '成功' : '失敗'}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                            \${log.hasPhone ? '<i class="fas fa-check text-green-600"></i>' : '<i class="fas fa-times text-red-600"></i>'}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                            \${log.hasEmail ? '<i class="fas fa-check text-green-600"></i>' : '<i class="fas fa-times text-red-600"></i>'}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                            \${log.hasFormUrl ? '<i class="fas fa-check text-green-600"></i>' : '<i class="fas fa-times text-red-600"></i>'}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            \${new Date(log.timestamp).toLocaleString('ja-JP')}
+                        </td>
+                    </tr>
+                \`).join('');
+            }
+
+            async function clearLogs() {
+                if (!confirm('すべてのログをクリアしますか？')) {
+                    return;
+                }
+                
+                try {
+                    await axios.delete('/api/search-logs');
+                    allLogs = [];
+                    updateStats();
+                    renderLogs();
+                    alert('ログをクリアしました');
+                } catch (error) {
+                    console.error('Error clearing logs:', error);
+                    alert('ログのクリアに失敗しました');
+                }
+            }
+
+            function exportLogs() {
+                const filterType = document.getElementById('filterType').value;
+                let filteredLogs = allLogs;
+
+                // フィルタリング（exportボタン用）
+                if (filterType === 'api-failed') {
+                    filteredLogs = allLogs.filter(log => !log.success);
+                } else if (filterType === 'incomplete') {
+                    filteredLogs = allLogs.filter(log => !log.hasPhone || !log.hasEmail || !log.hasFormUrl);
+                }
+
+                const dataStr = JSON.stringify(filteredLogs, null, 2);
+                const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+                
+                const exportFileDefaultName = \`search-logs-\${new Date().toISOString().split('T')[0]}.json\`;
+                
+                const linkElement = document.createElement('a');
+                linkElement.setAttribute('href', dataUri);
+                linkElement.setAttribute('download', exportFileDefaultName);
+                linkElement.click();
+            }
+
+            // イベントリスナー
+            document.getElementById('filterType').addEventListener('change', renderLogs);
+            document.getElementById('clearLogsBtn').addEventListener('click', clearLogs);
+            document.getElementById('exportBtn').addEventListener('click', exportLogs);
+
+            // 初期ロード
+            loadLogs();
+
+            // 自動更新（30秒ごと）
+            setInterval(loadLogs, 30000);
+        </script>
+    </body>
+    </html>
+  `)
+})
+
 // メインページ
 app.get('/', (c) => {
   return c.html(`
@@ -23,11 +276,19 @@ app.get('/', (c) => {
         <div class="container mx-auto px-4 py-8 max-w-3xl">
             <!-- ヘッダー -->
             <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
-                <h1 class="text-3xl font-bold text-gray-800 mb-2">
-                    <i class="fas fa-exclamation-triangle text-yellow-500 mr-2"></i>
-                    アスベスト通報システム
-                </h1>
-                <p class="text-gray-600">お住まいの地域のアスベスト情報を通報できます</p>
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h1 class="text-3xl font-bold text-gray-800 mb-2">
+                            <i class="fas fa-exclamation-triangle text-yellow-500 mr-2"></i>
+                            アスベスト通報システム
+                        </h1>
+                        <p class="text-gray-600">お住まいの地域のアスベスト情報を通報できます</p>
+                    </div>
+                    <a href="/admin" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition text-sm">
+                        <i class="fas fa-cog mr-2"></i>
+                        管理画面
+                    </a>
+                </div>
             </div>
 
             <!-- メインフォーム -->
@@ -688,11 +949,35 @@ const manualDatabase: Record<string, any> = {
   }
 }
 
+// 検索ログを保存する簡易的なメモリストア（実運用ではDBを使用）
+const searchLogs: Array<{
+  city: string
+  timestamp: string
+  success: boolean
+  source: 'manual' | 'api'
+  hasPhone: boolean
+  hasEmail: boolean
+  hasFormUrl: boolean
+  error?: string
+}> = []
+
+// API: 検索ログを取得
+app.get('/api/search-logs', (c) => {
+  return c.json(searchLogs)
+})
+
+// API: 検索ログをクリア
+app.delete('/api/search-logs', (c) => {
+  searchLogs.length = 0
+  return c.json({ message: 'ログをクリアしました' })
+})
+
 // API: 問い合わせ先検索（Perplexity API使用）
 app.post('/api/search', async (c) => {
+  const startTime = Date.now()
+  const { city, inquiryType } = await c.req.json()
+  
   try {
-    const { city, inquiryType } = await c.req.json()
-    
     if (!city) {
       return c.json({ error: '市町村名を入力してください' }, 400)
     }
@@ -700,7 +985,20 @@ app.post('/api/search', async (c) => {
     // 手動データベースをチェック
     if (manualDatabase[city]) {
       console.log(`✅ 手動データベースから取得: ${city}`)
-      return c.json(manualDatabase[city])
+      const result = manualDatabase[city]
+      
+      // ログを記録
+      searchLogs.push({
+        city,
+        timestamp: new Date().toISOString(),
+        success: true,
+        source: 'manual',
+        hasPhone: !!result.phone,
+        hasEmail: !!result.email,
+        hasFormUrl: !!result.formUrl
+      })
+      
+      return c.json(result)
     }
     
     // 問い合わせタイプに応じた部局を決定
@@ -801,10 +1099,34 @@ app.post('/api/search', async (c) => {
     // レスポンスから情報を抽出
     const result = parseAIResponse(aiResponse, city)
     
+    // ログを記録
+    searchLogs.push({
+      city,
+      timestamp: new Date().toISOString(),
+      success: true,
+      source: 'api',
+      hasPhone: !!result.phone && !result.phone.includes('代表電話'),
+      hasEmail: !!result.email,
+      hasFormUrl: !!result.formUrl
+    })
+    
     return c.json(result)
     
   } catch (error) {
     console.error('Search error:', error)
+    
+    // エラーログを記録
+    searchLogs.push({
+      city,
+      timestamp: new Date().toISOString(),
+      success: false,
+      source: 'api',
+      hasPhone: false,
+      hasEmail: false,
+      hasFormUrl: false,
+      error: error instanceof Error ? error.message : '不明なエラー'
+    })
+    
     return c.json({ 
       error: '検索中にエラーが発生しました',
       department: '情報を取得できませんでした',
