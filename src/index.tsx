@@ -640,6 +640,54 @@ app.get('/', (c) => {
   `)
 })
 
+// 手動データベース（Perplexity APIで取得困難な市町村の正確なデータ）
+const manualDatabase: Record<string, any> = {
+  '東京都八王子市': {
+    department: '八王子市環境部環境保全課',
+    phone: '042-620-7217',
+    email: null,
+    formUrl: 'https://www.city.hachioji.tokyo.jp/inquiry/mailform111100.html?PAGE_NO=7060',
+    pageUrl: 'https://www.city.hachioji.tokyo.jp/kurashi/life/004/006/p007060.html',
+    departments: [
+      {
+        name: '環境保全課（環境について）',
+        phone: '042-620-7217'
+      },
+      {
+        name: '建築指導課（建築物について）',
+        phone: '042-620-7264'
+      },
+      {
+        name: '廃棄物対策課（廃棄物について）',
+        phone: '042-620-7458'
+      },
+      {
+        name: '保健所（健康について）',
+        phone: '042-645-5111'
+      }
+    ]
+  },
+  '石川県金沢市': {
+    department: '金沢市環境政策課',
+    phone: '076-220-2508',
+    email: 'tikiho@city.kanazawa.lg.jp',
+    formUrl: 'https://www4.city.kanazawa.lg.jp/cgi-bin/inquiry.php/68?page_no=3624',
+    pageUrl: 'https://www4.city.kanazawa.lg.jp/soshikikarasagasu/kankyoseisakuka/gyomuannai/3/3/asbestos/index.html',
+    departments: [
+      {
+        name: '環境政策課（事業所及び建物等）',
+        phone: '076-220-2508',
+        email: 'メール送信フォームあり'
+      },
+      {
+        name: '保健所（健康について）',
+        phone: '076-234-5116',
+        email: 'tikiho@city.kanazawa.lg.jp'
+      }
+    ]
+  }
+}
+
 // API: 問い合わせ先検索（Perplexity API使用）
 app.post('/api/search', async (c) => {
   try {
@@ -647,6 +695,12 @@ app.post('/api/search', async (c) => {
     
     if (!city) {
       return c.json({ error: '市町村名を入力してください' }, 400)
+    }
+    
+    // 手動データベースをチェック
+    if (manualDatabase[city]) {
+      console.log(`✅ 手動データベースから取得: ${city}`)
+      return c.json(manualDatabase[city])
     }
     
     // 問い合わせタイプに応じた部局を決定
