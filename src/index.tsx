@@ -94,6 +94,47 @@ app.get('/', (c) => {
                             </div>
                         </div>
                     </div>
+
+                    <!-- 問い合わせ内容選択 -->
+                    <div class="mt-6 pt-6 border-t border-gray-300">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4">
+                            <i class="fas fa-question-circle text-orange-500 mr-2"></i>
+                            問い合わせ内容
+                        </h3>
+                        
+                        <div class="mb-4">
+                            <label class="block text-gray-700 font-semibold mb-2">
+                                問い合わせの目的を選択してください
+                            </label>
+                            <select 
+                                id="inquiryType"
+                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition"
+                            >
+                                <option value="">選択してください</option>
+                                <option value="survey">事前調査・届出の不正（環境部局）</option>
+                                <option value="prevention">飛散防止が不十分（環境部局）</option>
+                                <option value="safety">作業員の安全（労働基準監督署）</option>
+                                <option value="waste">廃棄物処理の不正（廃棄物部局）</option>
+                                <option value="health">健康被害・不安（保健部局／労基署）</option>
+                            </select>
+                            <p class="text-sm text-gray-500 mt-2">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                目的に応じて適切な連絡先が表示されます
+                            </p>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="block text-gray-700 font-semibold mb-2">
+                                問い合わせ内容の詳細（任意）
+                            </label>
+                            <textarea 
+                                id="inquiryDetail"
+                                rows="3"
+                                placeholder="具体的な問い合わせ内容を入力してください（任意）"
+                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition resize-none"
+                            ></textarea>
+                        </div>
+                    </div>
                 </form>
 
                 <!-- 検索履歴タブ -->
@@ -318,6 +359,7 @@ app.get('/', (c) => {
             // 検索実行関数
             async function performSearch() {
                 const city = selectedCity;
+                const inquiryType = document.getElementById('inquiryType').value;
 
                 if (!city) {
                     alert('市区町村を選択してください');
@@ -332,7 +374,8 @@ app.get('/', (c) => {
                 try {
                     // API呼び出し
                     const response = await axios.post('/api/search', {
-                        city: city
+                        city: city,
+                        inquiryType: inquiryType || ''
                     });
 
                     // 検索履歴に追加
@@ -600,11 +643,14 @@ app.get('/', (c) => {
 // API: 問い合わせ先検索（Perplexity API使用）
 app.post('/api/search', async (c) => {
   try {
-    const { city } = await c.req.json()
+    const { city, inquiryType } = await c.req.json()
     
     if (!city) {
       return c.json({ error: '市町村名を入力してください' }, 400)
     }
+    
+    // 問い合わせタイプに応じた部局を決定
+    const targetDepartments = getTargetDepartments(inquiryType)
 
     // Perplexity APIキーを取得
     const apiKey = c.env.PERPLEXITY_API_KEY
@@ -620,41 +666,51 @@ app.post('/api/search', async (c) => {
     }
 
     // Perplexity APIで検索
-    const prompt = `${city}のアスベスト（石綿）に関する通報・相談窓口の公式情報を教えてください。
+    const prompt = `${city}の公式ホームページから、アスベスト（石綿）に関する以下の部局の連絡先を全て教えてください：
 
-【重要指示】以下の情報を必ず全て探して記載してください：
-1. 担当部署名: 正式な部署名を記載
-2. 電話番号: ハイフン付きで記載（例: 03-1234-5678）
-3. メールアドレス: 必ず探してそのまま記載（例: mk-kagaku@city.yokohama.lg.jp、30suisin@city.kawasaki.jp）
-4. 問い合わせフォームURL: URLをそのまま記載（最優先で探してください）
-5. 公式ページURL: アスベスト関連ページのURLをそのまま記載
+【検索対象部局】
+1. 環境部局（環境課・環境保全課・公害対策課など）
+2. 建築部局（建築指導課・都市整備部など）
+3. 廃棄物部局（廃棄物対策課・資源循環課など）
+4. 保健部局（保健所・健康増進課など）
+5. 労働基準監督署（該当地域を管轄する監督署）
 
-【最優先】問い合わせフォームURLの探し方：
-✅ 公式ページを開いたら、必ずページの一番下までスクロールしてください
-✅ 「このページに関するお問い合わせ」「お問い合わせは専用フォームをご利用ください」「お問い合わせフォーム」「問い合わせ先」セクションを探してください
-✅ **重要**: 「お問い合わせは専用フォームをご利用ください」「こちらから」などのテキストの直後にあるリンクを必ず確認してください
-✅ 北海道の例: https://www.pref.hokkaido.lg.jp/ks/jss/khz/contents/asbest/madoguchi/dou.html のページ最下部に「お問い合わせフォーム」リンクがあり、https://www.pref.hokkaido.lg.jp/inquiry/?group=96&page=12399 が問い合わせフォームのURLです
-✅ 桐生市の例: ページ最下部に「お問い合わせは専用フォームをご利用ください。」というテキストがあり、そのリンク先が https://www.city.kiryu.lg.jp/cgi-bin/contacts/g18700 です
-✅ 問い合わせフォームのURLには「/inquiry/」「/form/」「/contact/」「/contacts/」「/cgi-bin/contacts/」「/otoiawase/」などが含まれます
-✅ 問い合わせフォームが見つかったら、必ず完全なURL（クエリパラメータも含む）を記載してください
+【各部局について以下の情報を記載】
+- 担当部署名: 正式な部署名を記載
+- 電話番号: ハイフン付きで記載（例: 03-1234-5678）
+- メールアドレス: 必ず探してそのまま記載（例: mk-kagaku@city.yokohama.lg.jp）
+- 問い合わせフォームURL: URLをそのまま記載
+- 公式ページURL: 部局のページURLをそのまま記載
 
-【最重要】メールアドレスの探し方：
-✅ 公式ページを開いたら、必ずページの一番下までスクロールしてください
-✅ 「このページへのお問合せ」「問い合わせ先」「連絡先」セクションを探してください
-✅ 横浜市の場合: https://www.city.yokohama.lg.jp/kurashi/machizukuri-kankyo/kankyohozen/hozentorikumi/asbesto/sodan-tel.html のページ最下部に「メールアドレス：mk-kagaku@city.yokohama.lg.jp」があります
-✅ 川崎市の場合: ページ下部に「メールアドレス: 30suisin@city.kawasaki.jp」があります
-✅ 電話番号が見つかったページの最下部に、必ずメールアドレスが記載されています
-✅ 「@city.○○.lg.jp」「@pref.○○.lg.jp」の形式のメールアドレスを必ず記載してください
+【重要な探し方】
+✅ 各部局のページを必ず最下部までスクロールして確認
+✅ 問い合わせフォームは「このページに関するお問い合わせ」セクションにリンクがあります
+✅ メールアドレスはページ最下部の「連絡先」「問い合わせ先」に記載
+✅ URLは完全な形（クエリパラメータ含む）で記載
 
-【回答形式】
-- 問い合わせフォームURL: https://www.pref.hokkaido.lg.jp/inquiry/?group=96&page=12399
-- メールアドレス: mk-kagaku@city.yokohama.lg.jp
-- 誤った例: 「なし」（ページ下部を確認せずに「なし」と回答しないでください）
+【回答フォーマット】
+以下の形式で各部局の情報を記載してください：
 
-【URLの記載方法】
-- URLには引用番号[1][2]や括弧（）を付けないでください
-- クエリパラメータ（?以降）も必ず含めてください
-- 完全なURLのみを記載: https://www.city.example.lg.jp/path/page.html?param=value`
+## 環境部局
+- 部署名: ○○環境課
+- 電話: 0X-XXXX-XXXX
+- メール: xxx@city.xx.lg.jp
+- フォーム: https://...
+- ページ: https://...
+
+## 建築部局
+（同様に記載）
+
+## 廃棄物部局
+（同様に記載）
+
+## 保健部局
+（同様に記載）
+
+## 労働基準監督署
+（同様に記載）
+
+※見つからない部局は「情報なし」と記載`
 
     const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
@@ -703,6 +759,19 @@ app.post('/api/search', async (c) => {
     }, 500)
   }
 })
+
+// 問い合わせタイプに応じた対象部局を決定
+function getTargetDepartments(inquiryType: string): string[] {
+  const departmentMap: Record<string, string[]> = {
+    'survey': ['環境部局'],           // 事前調査・届出の不正
+    'prevention': ['環境部局'],       // 飛散防止が不十分
+    'safety': ['労働基準監督署'],     // 作業員の安全
+    'waste': ['廃棄物部局'],          // 廃棄物処理の不正
+    'health': ['保健部局', '労働基準監督署']  // 健康被害・不安
+  }
+  
+  return departmentMap[inquiryType] || ['環境部局']
+}
 
 // AIレスポンスをパースする関数
 function parseAIResponse(response: string, city: string) {
