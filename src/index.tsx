@@ -345,6 +345,9 @@ app.get('/', (c) => {
                 // フォームデータを取得
                 const city = selectedCity;
                 
+                // 都道府県・市町村名を表示用に整形（担当部署の前に追加）
+                const displayDepartment = data.department ? \`\${city} \${data.department}\` : \`\${city} 環境課・公害対策課（要確認）\`;
+                
                 // メール本文を作成
                 const emailSubject = encodeURIComponent('アスベストに関する問い合わせ');
                 const emailBody = encodeURIComponent(
@@ -370,7 +373,7 @@ app.get('/', (c) => {
                                 <i class="fas fa-building text-blue-500 mr-1"></i>
                                 担当部署
                             </p>
-                            <p class="text-gray-800 text-lg">\${data.department || '情報なし'}</p>
+                            <p class="text-gray-800 text-lg">\${displayDepartment}</p>
                         </div>
                         
                         <!-- 電話番号 -->
