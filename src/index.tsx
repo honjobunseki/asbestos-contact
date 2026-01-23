@@ -94,27 +94,21 @@ app.get('/', (c) => {
                             </div>
                         </div>
                     </div>
-
-                    <!-- 送信ボタン -->
-                    <button 
-                        type="submit"
-                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-200 transform hover:scale-105"
-                    >
-                        <i class="fas fa-search mr-2"></i>
-                        問い合わせ先を検索
-                    </button>
                 </form>
+
+                <!-- 検索履歴タブ -->
+                <div id="historyTabs" class="mt-6 hidden">
+                    <div class="border-b border-gray-300">
+                        <div id="tabButtons" class="flex overflow-x-auto space-x-2 pb-2">
+                            <!-- タブボタンがここに表示される -->
+                        </div>
+                    </div>
+                </div>
 
                 <!-- 結果表示エリア -->
                 <div id="resultArea" class="mt-6 hidden">
-                    <div class="border-t-2 border-gray-200 pt-6">
-                        <h2 class="text-xl font-bold text-gray-800 mb-4">
-                            <i class="fas fa-phone text-green-500 mr-2"></i>
-                            問い合わせ先
-                        </h2>
-                        <div id="resultContent" class="bg-blue-50 p-4 rounded-lg">
-                            <!-- 結果がここに表示される -->
-                        </div>
+                    <div id="resultContent">
+                        <!-- 結果がここに表示される -->
                     </div>
                 </div>
 
@@ -200,6 +194,8 @@ app.get('/', (c) => {
 
             // グローバル変数
             let selectedCity = '';
+            let searchHistory = JSON.parse(localStorage.getItem('searchHistory') || '[]');
+            let currentActiveTab = null;
 
             // 都道府県セレクトボックスを初期化
             const prefectureSelect = document.getElementById('prefectureSelect');
@@ -231,12 +227,13 @@ app.get('/', (c) => {
                 selectedCity = '';
             });
 
-            // 市区町村選択時
-            document.getElementById('citySelect').addEventListener('change', (e) => {
+            // 市区町村選択時（自動検索）
+            document.getElementById('citySelect').addEventListener('change', async (e) => {
                 const prefecture = prefectureSelect.value;
                 const city = e.target.value;
                 if (prefecture && city) {
                     selectedCity = prefecture + city;
+                    await performSearch();
                 }
             });
 
@@ -309,6 +306,7 @@ app.get('/', (c) => {
                 // ローディング表示
                 document.getElementById('loading').classList.remove('hidden');
                 document.getElementById('resultArea').classList.add('hidden');
+                document.getElementById('historyTabs').classList.add('hidden');
 
                 try {
                     // API呼び出し
@@ -316,8 +314,14 @@ app.get('/', (c) => {
                         city: city
                     });
 
+                    // 検索履歴に追加
+                    addToHistory(city, response.data);
+                    
                     // 結果表示
-                    displayResult(response.data);
+                    displayResult(response.data, city);
+                    
+                    // タブを表示
+                    renderTabs();
                 } catch (error) {
                     console.error('Error:', error);
                     alert('検索中にエラーが発生しました');
@@ -326,24 +330,81 @@ app.get('/', (c) => {
                 }
             }
 
-            // フォーム送信処理（プルダウン選択時）
-            document.getElementById('asbestosForm').addEventListener('submit', async (e) => {
-                e.preventDefault();
+            // 検索履歴に追加（最大5件）
+            function addToHistory(city, data) {
+                // 市町村名のみを抽出
+                const cityNameOnly = city.replace(/^.+?(都|道|府|県)/, '');
                 
-                // プルダウンから選択された場合
-                const prefecture = document.getElementById('prefectureSelect').value;
-                const city = document.getElementById('citySelect').value;
-                if (prefecture && city) {
-                    selectedCity = prefecture + city;
-                    await performSearch();
+                // 既存の同じ市区町村を削除
+                searchHistory = searchHistory.filter(item => item.city !== city);
+                
+                // 先頭に追加
+                searchHistory.unshift({
+                    city: city,
+                    cityNameOnly: cityNameOnly,
+                    data: data,
+                    timestamp: Date.now()
+                });
+                
+                // 最大5件に制限
+                if (searchHistory.length > 5) {
+                    searchHistory = searchHistory.slice(0, 5);
                 }
-            });
-
-            function displayResult(data) {
-                const resultContent = document.getElementById('resultContent');
                 
-                // フォームデータを取得
-                const city = selectedCity;
+                // localStorageに保存
+                localStorage.setItem('searchHistory', JSON.stringify(searchHistory));
+                
+                // 最新のタブをアクティブに
+                currentActiveTab = city;
+            }
+
+            // タブを描画
+            function renderTabs() {
+                const tabButtons = document.getElementById('tabButtons');
+                const historyTabs = document.getElementById('historyTabs');
+                
+                if (searchHistory.length === 0) {
+                    historyTabs.classList.add('hidden');
+                    return;
+                }
+                
+                historyTabs.classList.remove('hidden');
+                
+                tabButtons.innerHTML = searchHistory.map(item => {
+                    const isActive = item.city === currentActiveTab;
+                    return \`
+                        <button 
+                            class="tab-button px-4 py-2 rounded-t-lg font-semibold transition whitespace-nowrap \${isActive ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}"
+                            data-city="\${item.city}"
+                        >
+                            \${item.cityNameOnly}
+                        </button>
+                    \`;
+                }).join('');
+                
+                // タブクリックイベント
+                document.querySelectorAll('.tab-button').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const city = button.dataset.city;
+                        const historyItem = searchHistory.find(item => item.city === city);
+                        if (historyItem) {
+                            currentActiveTab = city;
+                            displayResult(historyItem.data, city);
+                            renderTabs();
+                        }
+                    });
+                });
+            }
+
+            // ページ読み込み時に履歴タブを表示
+            if (searchHistory.length > 0) {
+                currentActiveTab = searchHistory[0].city;
+                displayResult(searchHistory[0].data, searchHistory[0].city);
+                renderTabs();
+            }
+
+            function displayResult(data, city) {
+                const resultContent = document.getElementById('resultContent');
                 
                 // 都道府県・市町村名を表示用に整形（担当部署の前に追加）
                 const displayDepartment = data.department ? \`\${city} \${data.department}\` : \`\${city} 環境課・公害対策課（要確認）\`;
@@ -666,9 +727,13 @@ function parseAIResponse(response: string, city: string) {
     }
   }
   
-  // Markdownの太字記号を削除
+  // Markdownの太字記号と引用番号を削除
   if (department) {
-    department = department.replace(/\*\*/g, '')
+    department = department
+      .replace(/\*\*/g, '')           // 太字記号削除
+      .replace(/\[\d+\]/g, '')        // [1][2]のような引用番号削除
+      .replace(/\[\d+$/g, '')         // 末尾の[1のような不完全な引用削除
+      .trim()
   }
 
   return {
