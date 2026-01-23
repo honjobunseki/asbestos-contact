@@ -529,15 +529,22 @@ app.post('/api/search', async (c) => {
 必ず以下の形式で回答してください：
 1. 担当部署名: 正式な部署名を記載
 2. 電話番号: ハイフン付きで記載（例: 03-1234-5678）
-3. メールアドレス: 環境課、公害対策課、建築指導課などの部署のメールアドレスを探して記載（例: kankyo@city.example.lg.jp）
+3. メールアドレス: 環境課、公害対策課、建築指導課などの部署のメールアドレスを探して記載（例: kankyo@city.example.lg.jp、mk-kagaku@city.yokohama.lg.jp）
 4. 問い合わせフォームURL: メール送信フォーム、お問い合わせフォーム、相談フォームなどのURLを記載（form、inquiry、contact、otoiawase、mail などが含まれるURL）
 5. 公式ページURL: アスベスト関連ページのURL（完全なURL、https://から始まる）
 
-【超重要】メールアドレスと問い合わせフォームの検索：
-- メールアドレスは、部署の連絡先ページ、お問い合わせページなどに記載されていることが多い
-- 問い合わせフォームは「メール送信フォーム」「お問い合わせフォーム」「メールでのお問い合わせ」などの名称で提供されている
-- 市区町村の公式サイト内の「お問い合わせ」「連絡先」「各課連絡先」ページも確認してください
-- 大阪市、川崎市、横浜市などの例：メール送信フォーム、メールアドレスが公開されているケースがある
+【超重要】メールアドレスの検索方法：
+- メールアドレスは「ページの最後」に記載されていることが非常に多い
+- 「このページへのお問合せ」「問い合わせ先」「担当部署」などのセクションを必ず確認
+- 横浜市の例: ページ下部に「メールアドレス：mk-kagaku@city.yokohama.lg.jp」と記載
+- 川崎市の例: 「メールアドレス: 30suisin@city.kawasaki.jp」と記載
+- 大阪市の例: 「メール送信フォーム」のリンクがある
+- 電話番号が見つかったページの最後まで必ずスクロールして、メールアドレスを探してください
+
+【超重要】問い合わせフォームの検索：
+- 問い合わせフォームは「メール送信フォーム」「お問い合わせフォーム」「メールでのお問い合わせ」などの名称で提供
+- ページ下部の「このページへのお問合せ」セクションにリンクがあることが多い
+- form、inquiry、contact、otoiawase、mail、soudan などのキーワードで検出
 
 【超重要】URLの記載方法：
 - URLには絶対に引用番号を付けないでください（NG例: https://example.com[1]）
@@ -548,7 +555,8 @@ app.post('/api/search', async (c) => {
 その他の重要事項：
 - 最新の公式サイトの情報のみを使用してください
 - 問い合わせフォームと公式ページは別々に記載してください
-- メールアドレスや問い合わせフォームが見つからない場合は「なし」と明記してください`
+- メールアドレスや問い合わせフォームが見つからない場合は「なし」と明記してください
+- 電話番号とメールアドレスは同じページに記載されていることが多いので、電話番号が見つかったページを最後まで確認してください`
 
     const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
@@ -561,7 +569,7 @@ app.post('/api/search', async (c) => {
         messages: [
           {
             role: 'system',
-            content: 'あなたは日本の行政情報に詳しい専門アシスタントです。最新の公式サイトから正確な情報のみを提供してください。URLを記載する際は、引用番号[1][2]や括弧（）を絶対に含めず、完全なURLのみを記載してください。URLは https:// から始まり .html や / で終わる完全な形式で提供してください。'
+            content: 'あなたは日本の行政情報に詳しい専門アシスタントです。最新の公式サイトから正確な情報のみを提供してください。重要：ウェブページを検索する際は、ページの最初から最後まで全体を必ず確認してください。特に「このページへのお問合せ」「問い合わせ先」「担当部署」などのセクションは通常ページの最下部にあり、メールアドレスや問い合わせフォームのリンクが記載されています。電話番号が見つかったページは必ず最後までスクロールして、メールアドレスとフォームを探してください。URLを記載する際は、引用番号[1][2]や括弧（）を絶対に含めず、完全なURLのみを記載してください。'
           },
           {
             role: 'user',
@@ -569,7 +577,7 @@ app.post('/api/search', async (c) => {
           }
         ],
         temperature: 0.1,  // より確定的な回答を得る
-        max_tokens: 800,
+        max_tokens: 1200,  // より詳細な情報を取得
         search_domain_filter: ['go.jp', 'lg.jp'],  // 日本の公式ドメインに限定
         return_citations: true  // 引用情報を返す
       })
@@ -651,9 +659,19 @@ function parseAIResponse(response: string, city: string) {
   // 最適な一般URLを選択（長いものを優先）
   const pageUrl = generalUrls.sort((a, b) => b.length - a.length)[0] || cleanUrls[0] || null
 
-  // メールアドレスを抽出
+  // メールアドレスを抽出（複数のパターンを試す）
   const emailMatches = response.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g)
-  const email = emailMatches ? emailMatches[0] : null
+  let email = null
+  if (emailMatches && emailMatches.length > 0) {
+    // .lg.jp または .go.jp のメールアドレスを優先
+    const officialEmails = emailMatches.filter(e => e.includes('.lg.jp') || e.includes('.go.jp'))
+    email = officialEmails[0] || emailMatches[0]
+  }
+  
+  // デバッグ用ログ
+  console.log('AI Response:', response)
+  console.log('Extracted Email:', email)
+  console.log('All Email Matches:', emailMatches)
 
   // 電話番号を抽出（日本の電話番号形式）
   const phoneMatches = response.match(/0\d{1,4}-\d{1,4}-\d{4}/g) || 
