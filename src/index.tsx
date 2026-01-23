@@ -727,12 +727,16 @@ function parseAIResponse(response: string, city: string) {
     }
   }
   
-  // Markdownの太字記号と引用番号を削除
+  // Markdownの太字記号と引用番号を削除、余計な説明文を削除
   if (department) {
     department = department
-      .replace(/\*\*/g, '')           // 太字記号削除
-      .replace(/\[\d+\]/g, '')        // [1][2]のような引用番号削除
-      .replace(/\[\d+$/g, '')         // 末尾の[1のような不完全な引用削除
+      .replace(/\*\*/g, '')                      // 太字記号削除
+      .replace(/\[\d+\]/g, '')                   // [1][2]のような引用番号削除
+      .replace(/\[\d+$/g, '')                    // 末尾の[1のような不完全な引用削除
+      .replace(/^[-ー\s]+/, '')                  // 先頭のハイフンやスペース削除
+      .replace(/\s*[-ー]\s*.+$/, '')             // ハイフン以降の説明文を削除
+      .replace(/^主に.+?は/, '')                 // 「主に○○は」のような説明削除
+      .replace(/^.+?(?=(?:市役所|町役場|村役場|都庁|県庁|府庁|道庁))/, '')  // 「○○市役所」より前の説明削除
       .trim()
   }
 
