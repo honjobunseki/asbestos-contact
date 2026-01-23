@@ -631,9 +631,11 @@ app.post('/api/search', async (c) => {
 
 【最優先】問い合わせフォームURLの探し方：
 ✅ 公式ページを開いたら、必ずページの一番下までスクロールしてください
-✅ 「このページに関するお問い合わせ」「お問い合わせフォーム」「問い合わせ先」セクションを探してください
+✅ 「このページに関するお問い合わせ」「お問い合わせは専用フォームをご利用ください」「お問い合わせフォーム」「問い合わせ先」セクションを探してください
+✅ **重要**: 「お問い合わせは専用フォームをご利用ください」「こちらから」などのテキストの直後にあるリンクを必ず確認してください
 ✅ 北海道の例: https://www.pref.hokkaido.lg.jp/ks/jss/khz/contents/asbest/madoguchi/dou.html のページ最下部に「お問い合わせフォーム」リンクがあり、https://www.pref.hokkaido.lg.jp/inquiry/?group=96&page=12399 が問い合わせフォームのURLです
-✅ 問い合わせフォームのURLには「/inquiry/」「/form/」「/contact/」「/otoiawase/」などが含まれます
+✅ 桐生市の例: ページ最下部に「お問い合わせは専用フォームをご利用ください。」というテキストがあり、そのリンク先が https://www.city.kiryu.lg.jp/cgi-bin/contacts/g18700 です
+✅ 問い合わせフォームのURLには「/inquiry/」「/form/」「/contact/」「/contacts/」「/cgi-bin/contacts/」「/otoiawase/」などが含まれます
 ✅ 問い合わせフォームが見つかったら、必ず完全なURL（クエリパラメータも含む）を記載してください
 
 【最重要】メールアドレスの探し方：
@@ -665,7 +667,7 @@ app.post('/api/search', async (c) => {
         messages: [
           {
             role: 'system',
-            content: 'あなたは日本の行政情報に詳しい専門アシスタントです。【最重要指示】ウェブページを検索する際は、必ずページの最初から最後まで全体をスクロールして確認してください。特に「このページに関するお問い合わせ」「このページへのお問合せ」「お問い合わせフォーム」「連絡先」「問い合わせ先」「担当部署」などのセクションは必ずページの最下部にあります。問い合わせフォームのリンクを最優先で探してください（/inquiry/、/form/、/contact/などのURLパターン）。クエリパラメータ付きURL（?以降も含む）も必ず完全な形で記載してください。電話番号が見つかったページでは、必ず最下部までスクロールして、メールアドレス（@city.○○.lg.jp、@pref.○○.lg.jp）を探してください。メールアドレスや問い合わせフォームを見つけたら、必ずそのまま記載してください。「なし」と回答する前に、必ずページ最下部を確認してください。URLを記載する際は、引用番号や括弧を付けず、完全なURL（クエリパラメータも含む）のみを記載してください。'
+            content: 'あなたは日本の行政情報に詳しい専門アシスタントです。【最重要指示】ウェブページを検索する際は、必ずページの最初から最後まで全体をスクロールして確認してください。特に「このページに関するお問い合わせ」「お問い合わせは専用フォームをご利用ください」「このページへのお問合せ」「お問い合わせフォーム」「連絡先」「問い合わせ先」「担当部署」などのセクションは必ずページの最下部にあります。これらのテキストの直後にあるリンクを必ず確認してください。問い合わせフォームのリンクを最優先で探してください（/inquiry/、/form/、/contact/、/contacts/、/cgi-bin/contacts/ などのURLパターン）。クエリパラメータ付きURL（?以降も含む）も必ず完全な形で記載してください。電話番号が見つかったページでは、必ず最下部までスクロールして、メールアドレス（@city.○○.lg.jp、@pref.○○.lg.jp）を探してください。メールアドレスや問い合わせフォームを見つけたら、必ずそのまま記載してください。「なし」と回答する前に、必ずページ最下部を確認してください。URLを記載する際は、引用番号や括弧を付けず、完全なURL（クエリパラメータも含む）のみを記載してください。'
           },
           {
             role: 'user',
@@ -747,13 +749,16 @@ function parseAIResponse(response: string, city: string) {
   
   // フォームURLと一般URLを分類
   const formUrls = cleanUrls.filter(url => 
-    url.includes('/inquiry') ||          // 最優先: /inquiry/（北海道など）
+    url.includes('/cgi-bin/contacts') ||  // 最優先: /cgi-bin/contacts/（桐生市など）
+    url.includes('/inquiry') ||          // /inquiry/（北海道など）
+    url.includes('/contacts') ||         // /contacts/パターン
     url.includes('/form') || 
     url.includes('/contact') ||
     url.includes('/otoiawase') ||
     url.includes('/mail') ||
     url.includes('/soudan') ||
     url.includes('inquiry') ||           // queryパラメータにinquiryが含まれる
+    url.includes('contacts') ||          // queryパラメータにcontactsが含まれる
     url.includes('form') ||
     url.includes('mail.cgi') ||
     url.includes('mail_form') ||
