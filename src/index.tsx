@@ -216,11 +216,11 @@ app.get('/', (c) => {
                 citySelect.disabled = !prefecture;
                 
                 if (prefecture && citiesData[prefecture]) {
-                    // 最初に「全域」オプションを追加
-                    const allOption = document.createElement('option');
-                    allOption.value = '全域';
-                    allOption.textContent = prefecture + '全域';
-                    citySelect.appendChild(allOption);
+                    // 最初に都道府県オプションを追加
+                    const prefOption = document.createElement('option');
+                    prefOption.value = '都道府県';
+                    prefOption.textContent = prefecture;
+                    citySelect.appendChild(prefOption);
                     
                     // 市区町村リストを追加
                     citiesData[prefecture].forEach(city => {
@@ -239,7 +239,8 @@ app.get('/', (c) => {
                 const prefecture = prefectureSelect.value;
                 const city = e.target.value;
                 if (prefecture && city) {
-                    selectedCity = prefecture + city;
+                    // 「都道府県」が選択された場合は都道府県名のみ
+                    selectedCity = (city === '都道府県') ? prefecture : (prefecture + city);
                     await performSearch();
                 }
             });
@@ -261,8 +262,8 @@ app.get('/', (c) => {
                     pref.includes(query)
                 ).map(pref => ({
                     prefecture: pref,
-                    city: '全域',
-                    fullName: pref + '全域',
+                    city: '',
+                    fullName: pref,
                     isPrefecture: true
                 }));
                 
@@ -286,9 +287,8 @@ app.get('/', (c) => {
                 suggestionsDiv.innerHTML = matches.map(item => \`
                     <div class="suggestion-item p-3 hover:bg-blue-50 cursor-pointer border-b border-gray-200 last:border-b-0 \${item.isPrefecture ? 'bg-green-50' : ''}"
                          data-fullname="\${item.fullName}">
-                        <span class="text-gray-600">\${item.prefecture}</span>
-                        <span class="font-semibold text-gray-800">\${item.city}</span>
-                        \${item.isPrefecture ? '<span class="ml-2 text-xs bg-green-600 text-white px-2 py-1 rounded">都道府県全域</span>' : ''}
+                        <span class="font-semibold text-gray-800">\${item.isPrefecture ? item.prefecture : item.prefecture + ' ' + item.city}</span>
+                        \${item.isPrefecture ? '<span class="ml-2 text-xs bg-green-600 text-white px-2 py-1 rounded">都道府県</span>' : ''}
                     </div>
                 \`).join('');
                 
@@ -353,8 +353,11 @@ app.get('/', (c) => {
 
             // 検索履歴に追加（最大5件）
             function addToHistory(city, data) {
-                // 市町村名のみを抽出
-                const cityNameOnly = city.replace(/^.+?(都|道|府|県)/, '');
+                // 都道府県のみの検索かどうかを判定
+                const isPrefectureOnly = city.match(/^.+?(都|道|府|県)$/);
+                
+                // 市町村名のみを抽出（都道府県のみの場合はそのまま）
+                const cityNameOnly = isPrefectureOnly ? city : city.replace(/^.+?(都|道|府|県)/, '');
                 
                 // 既存の同じ市区町村を削除
                 searchHistory = searchHistory.filter(item => item.city !== city);
@@ -473,8 +476,11 @@ app.get('/', (c) => {
                 // 都道府県・市町村名を表示用に整形（担当部署の前に追加）
                 const displayDepartment = data.department ? \`\${city} \${data.department}\` : \`\${city} 環境課・公害対策課（要確認）\`;
                 
-                // 市町村名のみを抽出（都道府県名を除く）
-                const cityNameOnly = city.replace(/^.+?(都|道|府|県)/, '');
+                // 都道府県のみの検索かどうかを判定
+                const isPrefectureOnly = city.match(/^.+?(都|道|府|県)$/);
+                
+                // 市町村名のみを抽出（都道府県名を除く）、都道府県のみの場合はそのまま
+                const cityNameOnly = isPrefectureOnly ? city : city.replace(/^.+?(都|道|府|県)/, '');
                 
                 // メール本文を作成
                 const emailSubject = encodeURIComponent('アスベストに関する問い合わせ');
