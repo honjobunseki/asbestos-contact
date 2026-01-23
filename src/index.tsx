@@ -95,34 +95,6 @@ app.get('/', (c) => {
                         </div>
                     </div>
 
-                    <!-- アスベスト情報 -->
-                    <div class="mb-6">
-                        <label class="block text-gray-700 font-semibold mb-2">
-                            <i class="fas fa-building text-gray-600 mr-1"></i>
-                            建物・場所の情報
-                        </label>
-                        <input 
-                            type="text" 
-                            id="location"
-                            placeholder="例: 〇〇町1-2-3 △△ビル"
-                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition"
-                        >
-                    </div>
-
-                    <!-- 詳細情報 -->
-                    <div class="mb-6">
-                        <label class="block text-gray-700 font-semibold mb-2">
-                            <i class="fas fa-info-circle text-blue-500 mr-1"></i>
-                            詳細情報
-                        </label>
-                        <textarea 
-                            id="details"
-                            rows="4"
-                            placeholder="アスベストの状況、気づいた点などを記入してください"
-                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition"
-                        ></textarea>
-                    </div>
-
                     <!-- 送信ボタン -->
                     <button 
                         type="submit"
@@ -328,8 +300,6 @@ app.get('/', (c) => {
             // 検索実行関数
             async function performSearch() {
                 const city = selectedCity;
-                const location = document.getElementById('location').value;
-                const details = document.getElementById('details').value;
 
                 if (!city) {
                     alert('市区町村を選択してください');
@@ -343,9 +313,7 @@ app.get('/', (c) => {
                 try {
                     // API呼び出し
                     const response = await axios.post('/api/search', {
-                        city: city,
-                        location: location,
-                        details: details
+                        city: city
                     });
 
                     // 結果表示
@@ -376,16 +344,13 @@ app.get('/', (c) => {
                 
                 // フォームデータを取得
                 const city = selectedCity;
-                const location = document.getElementById('location').value;
-                const details = document.getElementById('details').value;
                 
                 // メール本文を作成
                 const emailSubject = encodeURIComponent('アスベストに関する問い合わせ');
                 const emailBody = encodeURIComponent(
                     '【市区町村】\\n' + city + '\\n\\n' +
-                    '【建物・場所の情報】\\n' + (location || '（未記入）') + '\\n\\n' +
-                    '【詳細情報】\\n' + (details || '（未記入）') + '\\n\\n' +
                     '【担当部署】\\n' + (data.department || '') + '\\n\\n' +
+                    '【問い合わせ内容】\\n\\n\\n' +
                     '※このメールは「アスベスト通報システム」から送信されています。'
                 );
                 
@@ -510,7 +475,7 @@ app.get('/', (c) => {
 // API: 問い合わせ先検索（Perplexity API使用）
 app.post('/api/search', async (c) => {
   try {
-    const { city, location, details } = await c.req.json()
+    const { city } = await c.req.json()
     
     if (!city) {
       return c.json({ error: '市町村名を入力してください' }, 400)
