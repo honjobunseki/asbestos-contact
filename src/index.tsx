@@ -348,6 +348,9 @@ app.get('/', (c) => {
                 // 都道府県・市町村名を表示用に整形（担当部署の前に追加）
                 const displayDepartment = data.department ? \`\${city} \${data.department}\` : \`\${city} 環境課・公害対策課（要確認）\`;
                 
+                // 市町村名のみを抽出（都道府県名を除く）
+                const cityNameOnly = city.replace(/^.+?(都|道|府|県)/, '');
+                
                 // メール本文を作成
                 const emailSubject = encodeURIComponent('アスベストに関する問い合わせ');
                 const emailBody = encodeURIComponent(
@@ -448,23 +451,11 @@ app.get('/', (c) => {
                                 <a href="\${data.pageUrl}" target="_blank" 
                                    class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition transform hover:scale-105 shadow-lg">
                                     <i class="fas fa-external-link-alt mr-2"></i>
-                                    公式ページを開く
+                                    \${cityNameOnly}の公式ページを開く
                                 </a>
                             </div>
                         \` : '<p class="text-center text-gray-600">公式ページが見つかりませんでした</p>'}
 
-                        <!-- AI回答の詳細（オプション） -->
-                        \${data.aiResponse ? \`
-                            <details class="mt-4">
-                                <summary class="cursor-pointer text-sm text-blue-600 hover:text-blue-800">
-                                    <i class="fas fa-info-circle mr-1"></i>
-                                    AI検索結果の詳細を見る
-                                </summary>
-                                <div class="mt-2 p-3 bg-gray-50 rounded text-sm text-gray-700 whitespace-pre-wrap">
-                                    \${data.aiResponse}
-                                </div>
-                            </details>
-                        \` : ''}
                     </div>
                 \`;
                 document.getElementById('resultArea').classList.remove('hidden');
@@ -673,6 +664,11 @@ function parseAIResponse(response: string, city: string) {
       department = match[1].trim()
       break
     }
+  }
+  
+  // Markdownの太字記号を削除
+  if (department) {
+    department = department.replace(/\*\*/g, '')
   }
 
   return {
