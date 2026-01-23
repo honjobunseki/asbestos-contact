@@ -649,7 +649,21 @@ app.get('/', (c) => {
                     renderTabs();
                 } catch (error) {
                     console.error('Error:', error);
-                    alert('検索中にエラーが発生しました');
+                    
+                    // 404エラー（データが見つからない）の場合は、エラーレスポンスを表示
+                    if (error.response && error.response.status === 404 && error.response.data) {
+                        // 検索履歴に追加
+                        addToHistory(city, error.response.data);
+                        
+                        // 結果表示（データが見つからない場合の表示）
+                        displayResult(error.response.data, city);
+                        
+                        // タブを表示
+                        renderTabs();
+                    } else {
+                        // その他のエラーの場合のみアラート表示
+                        alert('検索中にエラーが発生しました');
+                    }
                 } finally {
                     document.getElementById('loading').classList.add('hidden');
                 }
