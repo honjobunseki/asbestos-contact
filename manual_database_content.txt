@@ -1,0 +1,523 @@
+// 手動データベース（発見フェーズで収集したデータ）
+const manualDatabase: Record<string, any> = {
+  "北海道": {
+    "department": "北海道環境生活部環境保全局循環型社会推進課",
+    "phone": "011-231-4111",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.pref.hokkaido.lg.jp/ks/jss/khz/contents/asbest/madoguchi/dou.html"
+  },
+  "青森県": {
+    "department": "環境エネルギー部 環境政策課 生活環境保全グループ",
+    "phone": "017-734-9485",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.pref.aomori.lg.jp/soshiki/kankyo/kankyo/asbestos_soudan.html"
+  },
+  "岩手県": {
+    "department": "環境生活部 環境保全課 環境調整担当",
+    "phone": "019-629-5359",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.pref.iwate.jp/kurashikankyou/kankyou/hozen/taiki/1053170.html"
+  },
+  "宮城県": {
+    "department": "保健福祉部健康推進課 健康推進第二班",
+    "phone": "022-211-2624",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.pref.miyagi.jp/site/asbestos/asbestos-soudan.html"
+  },
+  "秋田県": {
+    "department": "生活環境部 環境管理課",
+    "phone": "018-860-1603",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.pref.akita.lg.jp/pages/archive/1168"
+  },
+  "山形県": {
+    "department": "村山総合支庁環境課",
+    "phone": "023-621-8429",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.pref.yamagata.jp/050014/kurashi/kankyo/taiki/asbestos.html"
+  },
+  "福島県": {
+    "department": "水・大気環境課",
+    "phone": "024-521-7261",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.pref.fukushima.lg.jp/sec/16035c/mizutaiki-asubesuto.html"
+  },
+  "茨城県": {
+    "department": "茨城県県民生活環境部環境対策課",
+    "phone": "029-301-2956",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.pref.ibaraki.jp/seikatsukankyo/kantai/taiki/environment/asbestos.html"
+  },
+  "栃木県": {
+    "department": "環境保全課 大気環境担当",
+    "phone": "028-623-3188",
+    "email": "kankyo@pref.tochigi.lg.jp",
+    "formUrl": null,
+    "pageUrl": "https://www.pref.tochigi.lg.jp/d03/eco/kankyou/hozen/asbestos.html"
+  },
+  "群馬県": {
+    "department": "感染症・疾病対策課疾病対策係",
+    "phone": "027-226-2601",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.pref.gunma.jp/page/1697.html"
+  },
+  "埼玉県": {
+    "department": "県環境部大気環境課",
+    "phone": "048-830-3058",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.pref.saitama.lg.jp/a0504/sekimen-soudanmadoguchi1.html"
+  },
+  "千葉県": {
+    "department": "環境生活部 環境保全課",
+    "phone": "043-222-2111",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.pref.chiba.lg.jp/kankyo/asbestos/index.html"
+  },
+  "東京都": {
+    "department": "環境局 環境改善部 大気保全課 大気担当",
+    "phone": "03-5388-3493",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.kankyo1.metro.tokyo.lg.jp/about/contact_list/air.html"
+  },
+  "神奈川県": {
+    "department": "環境農政局 環境部 環境課 大気・交通環境グループ",
+    "phone": "045-210-4111",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.pref.kanagawa.jp/docs/pf7/asubesuto/soudan.html"
+  },
+  "新潟県": {
+    "department": "環境局 環境対策課 大気環境係",
+    "phone": null,
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.pref.niigata.lg.jp/sec/kankyotaisaku/1206378086891.html"
+  },
+  "富山県": {
+    "department": "生活環境文化部環境保全課",
+    "phone": "076-444-3144",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.pref.toyama.jp/1706/kurashi/kankyoushizen/kankyou/kj0000039347.html"
+  },
+  "石川県": {
+    "department": "生活環境部環境政策課",
+    "phone": "076-225-1463",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.pref.ishikawa.lg.jp/kankyo/kankeihourei/ishiwata/ishiwata.html"
+  },
+  "福井県": {
+    "department": "環境政策課",
+    "phone": "0776-20-0301",
+    "email": "kankyou@pref.fukui.lg.jp",
+    "formUrl": null,
+    "pageUrl": "https://www.pref.fukui.lg.jp/doc/kankyou/asb-ref.html"
+  },
+  "山梨県": {
+    "department": "山梨県森林環境部大気水質保全課",
+    "phone": "055-223-1508",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.pref.yamanashi.jp/taiki-sui/74886012357.html"
+  },
+  "長野県": {
+    "department": "環境部水大気環境課",
+    "phone": null,
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.pref.nagano.lg.jp/mizutaiki/kurashi/shizen/taiki/asbestos/torikumi/sodan.html"
+  },
+  "岐阜県": {
+    "department": "環境管理課（大気環境係）",
+    "phone": "058-272-8232",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.pref.gifu.lg.jp/page/16798.html"
+  },
+  "静岡県": {
+    "department": "くらし・環境部環境局生活環境課",
+    "phone": "054-221-2253",
+    "email": "seikan@pref.shizuoka.lg.jp",
+    "formUrl": null,
+    "pageUrl": "https://www.pref.shizuoka.jp/kurashikankyo/kankyo/taikisuishitsu/1002100/1002639/1017911.html"
+  },
+  "愛知県": {
+    "department": "愛知県 環境局 環境政策部 水大気環境課",
+    "phone": "052-954-6215",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.pref.aichi.jp/soshiki/mizutaiki/0000061151.html"
+  },
+  "三重県": {
+    "department": "三重県 環境生活部 環境共生局 大気・水環境課 大気環境班",
+    "phone": "059-224-2380",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.pref.mie.lg.jp/eco/earth/11131014642.htm"
+  },
+  "滋賀県": {
+    "department": "琵琶湖環境部環境政策課環境管理",
+    "phone": null,
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.pref.shiga.lg.jp/ippan/kankyoshizen/kankyou/300764.html"
+  },
+  "京都府": {
+    "department": "総合政策環境部環境管理課",
+    "phone": "075-414-4709",
+    "email": "kankyoka@pref.kyoto.lg.jp",
+    "formUrl": null,
+    "pageUrl": "https://www.pref.kyoto.jp/taiki/asubesutosho.html"
+  },
+  "大阪府": {
+    "department": "環境農林水産部 環境管理室 事業所指導課 大気指導グループ",
+    "phone": "06-6210-9581",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.pref.osaka.lg.jp/o120080/jigyoshoshido/asbestos/toiawasesaki.html"
+  },
+  "兵庫県": {
+    "department": "兵庫県環境部 水大気課 大気班",
+    "phone": "078-362-3285",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://web.pref.hyogo.lg.jp/org/mizutaiki/index.html"
+  },
+  "奈良県": {
+    "department": "県土マネジメント部 まちづくり推進局 建築安全課",
+    "phone": "0742-27-7563",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.pref.nara.jp/3940.htm"
+  },
+  "和歌山県": {
+    "department": "環境生活部環境政策局環境管理課企画指導班",
+    "phone": "073-441-2688",
+    "email": "e0321001@pref.wakayama.lg.jp",
+    "formUrl": null,
+    "pageUrl": "https://www.pref.wakayama.lg.jp/prefg/032100/d00202043.html"
+  },
+  "鳥取県": {
+    "department": null,
+    "phone": null,
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.pref.tottori.lg.jp/item/97070.htm"
+  },
+  "島根県": {
+    "department": "環境政策課",
+    "phone": "0852-22-5277",
+    "email": "kankyo@pref.shimane.lg.jp",
+    "formUrl": null,
+    "pageUrl": "https://www.pref.shimane.lg.jp/infra/kankyo/kankyo/asbest/"
+  },
+  "岡山県": {
+    "department": "岡山県生活環境部環境管理課",
+    "phone": "086-226-7302",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.pref.okayama.jp/page/detail-59801.html"
+  },
+  "広島県": {
+    "department": "環境県民局環境保全課化学物質対策グループ",
+    "phone": "082-513-2920",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.pref.hiroshima.lg.jp/site/eco/a-topics-asbesto-tettei-index.html"
+  },
+  "山口県": {
+    "department": "土木建築部住宅課民間住宅支援班",
+    "phone": "083-933-3883",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.pref.yamaguchi.lg.jp/soshiki/135/24214.html"
+  },
+  "徳島県": {
+    "department": "生活環境部環境管理課",
+    "phone": "088-621-2274",
+    "email": "kankyoukanrika@pref.tokushima.lg.jp",
+    "formUrl": null,
+    "pageUrl": "https://www.pref.tokushima.lg.jp/sp/ippannokata/kurashi/shizen/2009090400354/"
+  },
+  "香川県": {
+    "department": "環境管理課",
+    "phone": "087-832-3219",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.pref.kagawa.lg.jp/kankyokanri/kankyo-hozen/taikiseikatu/kisei/sb1kw8190816102850.html"
+  },
+  "愛媛県": {
+    "department": "県民環境部環境局環境・ゼロカーボン推進課",
+    "phone": "089-912-2347",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.pref.ehime.jp/page/7776.html"
+  },
+  "高知県": {
+    "department": "高知県 林業振興・環境部 環境対策課",
+    "phone": "088-821-4524",
+    "email": "030801@ken.pref.kochi.lg.jp",
+    "formUrl": null,
+    "pageUrl": "https://www.pref.kochi.lg.jp/doc/asubest-index/"
+  },
+  "福岡県": {
+    "department": "環境部 環境保全課 大気係",
+    "phone": "092-643-3360",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.pref.fukuoka.lg.jp/contents/asbesutos-soudanmadoguti.html"
+  },
+  "佐賀県": {
+    "department": "佐賀県県土整備部建築住宅課（建築指導担当）",
+    "phone": "0952-25-7165",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.pref.saga.lg.jp/kiji00334289/index.html"
+  },
+  "長崎県": {
+    "department": "長崎県県民生活環境部地域環境課",
+    "phone": "095-895-2356",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.pref.nagasaki.jp/bunrui/kurashi-kankyo/kankyohozen-ondankataisaku/ishiwata/"
+  },
+  "熊本県": {
+    "department": "環境生活部 環境局 環境保全課",
+    "phone": "096-333-2268",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.pref.kumamoto.jp/soshiki/51/5676.html"
+  },
+  "大分県": {
+    "department": "大分県生活環境部環境保全課",
+    "phone": "097-506-3114",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.pref.oita.jp/soshiki/13350/asubesuto-soudan.html"
+  },
+  "宮崎県": {
+    "department": "宮崎県県土整備部建築住宅課",
+    "phone": "0985-26-7194",
+    "email": "kenchikujutaku@pref.miyazaki.lg.jp",
+    "formUrl": null,
+    "pageUrl": "https://www.pref.miyazaki.lg.jp/kenchikujutaku/kurashi/shakaikiban/yutori-net/asbestos/index.html"
+  },
+  "鹿児島県": {
+    "department": "環境林務部環境保全課",
+    "phone": "099-286-2627",
+    "email": "cancan@pref.kagoshima.lg.jp",
+    "formUrl": null,
+    "pageUrl": "http://www.pref.kagoshima.jp/ad05/kurashi-kankyo/kankyo/taikisouon/asbestos/link.html"
+  },
+  "沖縄県": {
+    "department": "沖縄県 環境部 環境保全課",
+    "phone": "098-866-2236",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.pref.okinawa.jp/kurashikankyo/kankyo/1018635/1004502/1004510/1004511.html"
+  },
+  "札幌市": {
+    "department": "札幌市環境局環境都市推進部環境対策課",
+    "phone": "011-211-2882",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.city.sapporo.jp/kankyo/taiki_osen/kisei/asbesto/madoguchi.html"
+  },
+  "仙台市": {
+    "department": "環境局 環境対策課",
+    "phone": "022-398-4894",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.city.sendai.jp/taiki/kurashi/machi/kankyohozen/kogai/ishiwata/sodan.html"
+  },
+  "さいたま市": {
+    "department": "環境対策課",
+    "phone": "048-829-1111",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.city.saitama.jp/006/015/029/001/p007104.html"
+  },
+  "千葉市": {
+    "department": "保健福祉局医療衛生部保健所環境衛生課",
+    "phone": "043-238-9940",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.city.chiba.jp/hokenfukushi/iryoeisei/hokenjo/kankyo/asubesuto.html"
+  },
+  "横浜市": {
+    "department": "みどり環境局環境保全部大気・音環境課",
+    "phone": "045-671-3843",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.city.yokohama.lg.jp/kurashi/machizukuri-kankyo/kankyohozen/hozentorikumi/asbesto/sodan-tel.html"
+  },
+  "川崎市": {
+    "department": "川崎市環境局環境対策部環境対策推進課",
+    "phone": "044-200-2526",
+    "email": "30suisin@city.kawasaki.jp",
+    "formUrl": null,
+    "pageUrl": "https://www.city.kawasaki.jp/kurashi/category/29-1-4-5-6-0-0-0-0-0.html"
+  },
+  "相模原市": {
+    "department": "環境保全課",
+    "phone": "042-769-8241",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.city.sagamihara.kanagawa.jp/shisei/1026875/faq/gomi/1002569.html"
+  },
+  "新潟市": {
+    "department": "新潟市環境部環境対策課",
+    "phone": "025-226-1367",
+    "email": "kankyo@city.niigata.lg.jp",
+    "formUrl": null,
+    "pageUrl": "https://www.city.niigata.lg.jp/kurashi/kankyo/hozen/seikatukankyo/taikikankyo/asbesto_top/asbestos.html"
+  },
+  "静岡市": {
+    "department": "環境局環境保全課",
+    "phone": "054-221-1358",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.city.shizuoka.lg.jp/s5382/s004072.html"
+  },
+  "浜松市": {
+    "department": "浜松市役所健康福祉部保健所 保健総務課",
+    "phone": "053-453-6126",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.city.hamamatsu.shizuoka.jp/hokenk/soudan/asbestos/top01.html"
+  },
+  "名古屋市": {
+    "department": "環境局 地域環境対策部 大気環境対策課",
+    "phone": "052-972-2674",
+    "email": "a2674@kankyokyoku.city.nagoya.lg.jp",
+    "formUrl": null,
+    "pageUrl": "https://www.city.nagoya.jp/kurashi/kankyou/1034811/1012656/1012661.html"
+  },
+  "京都市": {
+    "department": "保健福祉局 医療衛生推進室 医療衛生企画課 健康危機対策担当",
+    "phone": "075-222-3600",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.city.kyoto.lg.jp/hokenfukushi/page/0000222461.html"
+  },
+  "大阪市": {
+    "department": "環境局環境管理部環境規制課環境保全対策グループ",
+    "phone": "06-6615-7923",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.city.osaka.lg.jp/kankyo/page/0000006080.html"
+  },
+  "堺市": {
+    "department": "環境局 環境保全部 環境対策課",
+    "phone": "072-228-7474",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.city.sakai.lg.jp/kurashi/gomi/kankyo_hozen/asbest/toiawase.html"
+  },
+  "神戸市": {
+    "department": "各区保健福祉課保健事業・高齢福祉担当",
+    "phone": null,
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.city.kobe.lg.jp/a00685/bosai/health/asbestos/asube/index.html"
+  },
+  "岡山市": {
+    "department": "環境局環境部環境保全課 大気騒音係",
+    "phone": "086-803-1280",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.city.okayama.jp/kurashi/0000034215.html"
+  },
+  "広島市": {
+    "department": "環境局 環境保全課 大気騒音係",
+    "phone": "082-504-2187",
+    "email": "kafu@city.hiroshima.lg.jp",
+    "formUrl": null,
+    "pageUrl": "https://www.city.hiroshima.lg.jp/business/gomi-kankyo/1006007/1026630/1026632/1003146.html"
+  },
+  "北九州市": {
+    "department": "保健福祉局保健所保健企画課",
+    "phone": "093-522-5721",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.city.kitakyushu.lg.jp/contents/924_10687.html"
+  },
+  "福岡市": {
+    "department": "環境局 環境監理部 環境保全課",
+    "phone": "092-733-5386",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "http://www.city.fukuoka.lg.jp/kankyo/k-hozen/qa/FAQ2569.html"
+  },
+  "熊本市": {
+    "department": "健康福祉局 保健衛生部 医療対策課",
+    "phone": "096-364-3186",
+    "email": "iryoutaisaku@city.kumamoto.lg.jp",
+    "formUrl": null,
+    "pageUrl": "https://www.city.kumamoto.jp/kiji00328581/index.html"
+  },
+  "桐生市": {
+    "department": "都市整備部 建築指導課",
+    "phone": "0277-48-9032",
+    "email": "shido@city.kiryu.lg.jp",
+    "formUrl": null,
+    "pageUrl": "https://www.city.kiryu.lg.jp/kurashi/jutaku/1018099/1001141.html"
+  },
+  "本庄市": {
+    "department": "経済環境部環境推進課環境衛生係",
+    "phone": "0495-25-1172",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.city.honjo.lg.jp/soshiki/keizaikankyo/kankyosuishin/tantoujouhou/gomi/12193.html"
+  },
+  "川越市": {
+    "department": "環境部 環境対策課 大気・騒音担当",
+    "phone": "049-224-5894",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.city.kawagoe.saitama.jp/shisei/toshikei/1010932/1010935.html"
+  },
+  "柏市": {
+    "department": "柏市環境政策課",
+    "phone": "04-7167-1695",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://faq2.city.kashiwa.lg.jp/faq/show/587?category_id=38&return_path=%2Fcategory%2Fshow%2F38%3Fpage%3D2%26site_domain%3Ddefault%26sort%3Dsort_access%26sort_order%3Ddesc%26type%3Dshow&site_domain=default"
+  },
+  "横須賀市": {
+    "department": "民生局健康部保健所保健予防課",
+    "phone": "046-822-4385",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.city.yokosuka.kanagawa.jp/3170/asbest/asbestsoudan.html"
+  },
+  "岐阜市": {
+    "department": "まちづくり推進部 建築指導課 耐震係",
+    "phone": "058-265-3904",
+    "email": "k-shidou@city.gifu.gifu.jp",
+    "formUrl": null,
+    "pageUrl": "https://www.city.gifu.lg.jp/kurashi/seikatukankyo/1002905/1002909.html"
+  },
+  "豊田市": {
+    "department": "環境部 環境保全課",
+    "phone": "0565-34-6628",
+    "email": "k_hozen@city.toyota.aichi.jp",
+    "formUrl": null,
+    "pageUrl": "https://www.city.toyota.aichi.jp/jigyousha/tetsuzuki/kankyouhozen/1027101/index.html"
+  }
+};
+
+
