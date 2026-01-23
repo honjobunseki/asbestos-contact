@@ -626,8 +626,15 @@ app.post('/api/search', async (c) => {
 1. 担当部署名: 正式な部署名を記載
 2. 電話番号: ハイフン付きで記載（例: 03-1234-5678）
 3. メールアドレス: 必ず探してそのまま記載（例: mk-kagaku@city.yokohama.lg.jp、30suisin@city.kawasaki.jp）
-4. 問い合わせフォームURL: URLをそのまま記載
+4. 問い合わせフォームURL: URLをそのまま記載（最優先で探してください）
 5. 公式ページURL: アスベスト関連ページのURLをそのまま記載
+
+【最優先】問い合わせフォームURLの探し方：
+✅ 公式ページを開いたら、必ずページの一番下までスクロールしてください
+✅ 「このページに関するお問い合わせ」「お問い合わせフォーム」「問い合わせ先」セクションを探してください
+✅ 北海道の例: https://www.pref.hokkaido.lg.jp/ks/jss/khz/contents/asbest/madoguchi/dou.html のページ最下部に「お問い合わせフォーム」リンクがあり、https://www.pref.hokkaido.lg.jp/inquiry/?group=96&page=12399 が問い合わせフォームのURLです
+✅ 問い合わせフォームのURLには「/inquiry/」「/form/」「/contact/」「/otoiawase/」などが含まれます
+✅ 問い合わせフォームが見つかったら、必ず完全なURL（クエリパラメータも含む）を記載してください
 
 【最重要】メールアドレスの探し方：
 ✅ 公式ページを開いたら、必ずページの一番下までスクロールしてください
@@ -637,13 +644,15 @@ app.post('/api/search', async (c) => {
 ✅ 電話番号が見つかったページの最下部に、必ずメールアドレスが記載されています
 ✅ 「@city.○○.lg.jp」「@pref.○○.lg.jp」の形式のメールアドレスを必ず記載してください
 
-【回答形式】メールアドレスが見つかった場合は、必ずそのまま記載してください：
-- 正しい例: メールアドレス: mk-kagaku@city.yokohama.lg.jp
-- 誤った例: メールアドレス: なし （ページ下部を確認せずに「なし」と回答しないでください）
+【回答形式】
+- 問い合わせフォームURL: https://www.pref.hokkaido.lg.jp/inquiry/?group=96&page=12399
+- メールアドレス: mk-kagaku@city.yokohama.lg.jp
+- 誤った例: 「なし」（ページ下部を確認せずに「なし」と回答しないでください）
 
 【URLの記載方法】
 - URLには引用番号[1][2]や括弧（）を付けないでください
-- 完全なURLのみを記載: https://www.city.example.lg.jp/path/page.html`
+- クエリパラメータ（?以降）も必ず含めてください
+- 完全なURLのみを記載: https://www.city.example.lg.jp/path/page.html?param=value`
 
     const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
@@ -656,7 +665,7 @@ app.post('/api/search', async (c) => {
         messages: [
           {
             role: 'system',
-            content: 'あなたは日本の行政情報に詳しい専門アシスタントです。【最重要指示】ウェブページを検索する際は、必ずページの最初から最後まで全体をスクロールして確認してください。特に「このページへのお問合せ」「連絡先」「問い合わせ先」「担当部署」などのセクションは必ずページの最下部にあります。電話番号が見つかったページでは、必ず最下部までスクロールして、メールアドレス（@city.○○.lg.jp、@pref.○○.lg.jp）を探してください。メールアドレスを見つけたら、必ずそのまま記載してください。「なし」と回答する前に、必ずページ最下部を確認してください。URLを記載する際は、引用番号や括弧を付けず、完全なURLのみを記載してください。'
+            content: 'あなたは日本の行政情報に詳しい専門アシスタントです。【最重要指示】ウェブページを検索する際は、必ずページの最初から最後まで全体をスクロールして確認してください。特に「このページに関するお問い合わせ」「このページへのお問合せ」「お問い合わせフォーム」「連絡先」「問い合わせ先」「担当部署」などのセクションは必ずページの最下部にあります。問い合わせフォームのリンクを最優先で探してください（/inquiry/、/form/、/contact/などのURLパターン）。クエリパラメータ付きURL（?以降も含む）も必ず完全な形で記載してください。電話番号が見つかったページでは、必ず最下部までスクロールして、メールアドレス（@city.○○.lg.jp、@pref.○○.lg.jp）を探してください。メールアドレスや問い合わせフォームを見つけたら、必ずそのまま記載してください。「なし」と回答する前に、必ずページ最下部を確認してください。URLを記載する際は、引用番号や括弧を付けず、完全なURL（クエリパラメータも含む）のみを記載してください。'
           },
           {
             role: 'user',
@@ -700,39 +709,56 @@ function parseAIResponse(response: string, city: string) {
   
   // URLのクリーニング
   const cleanUrls = urlMatches.map(url => {
-    // 引用番号や余計な文字を徹底的に削除
+    // 引用番号や余計な文字を削除（クエリパラメータは保持）
     let cleaned = url
       // 引用番号のパターン（あらゆる形式に対応）
       .replace(/\[[0-9]+$/g, '')           // [1 のような末尾
       .replace(/\[[0-9]+\]$/g, '')         // [1] のような末尾
-      .replace(/\[[0-9]+\].*$/g, '')       // [1][2]... のような連続
+      .replace(/\[[0-9]+\].*$/g, '')       // [1][2]... のような連続（ただし?以降は保持）
+    
+    // クエリパラメータの前後で分割
+    const hasQuery = cleaned.includes('?')
+    const parts = cleaned.split('?')
+    const baseUrl = parts[0]
+    const queryString = parts[1] || ''
+    
+    // ベースURLのクリーニング
+    const cleanedBase = baseUrl
       .replace(/\[.*$/g, '')               // [ 以降を全削除
       // 括弧類
       .replace(/[\)）\]】\}]+$/g, '')      // 末尾の閉じ括弧を削除
       .replace(/（.*$/g, '')               // （以降を削除
-      .replace(/\(.*$/g, '')               // (以降を削除
       // 句読点
       .replace(/[、。，\.;；]+$/g, '')     // 末尾の句読点を削除
       // その他の記号
       .replace(/[\s]+$/g, '')              // 末尾の空白を削除
       .replace(/["\'\`]+$/g, '')           // 末尾の引用符を削除
     
-    return cleaned
+    // クエリ文字列のクリーニング（必要最小限）
+    const cleanedQuery = queryString
+      .replace(/[\)）\]】\}]+$/g, '')      // 末尾の閉じ括弧を削除
+      .replace(/[、。，\.;；]+$/g, '')     // 末尾の句読点を削除
+      .replace(/[\s]+$/g, '')              // 末尾の空白を削除
+      .replace(/["\'\`]+$/g, '')           // 末尾の引用符を削除
+    
+    // 再結合
+    return hasQuery && cleanedQuery ? `${cleanedBase}?${cleanedQuery}` : cleanedBase
   })
   
   // フォームURLと一般URLを分類
   const formUrls = cleanUrls.filter(url => 
+    url.includes('/inquiry') ||          // 最優先: /inquiry/（北海道など）
     url.includes('/form') || 
-    url.includes('/inquiry') || 
     url.includes('/contact') ||
     url.includes('/otoiawase') ||
     url.includes('/mail') ||
     url.includes('/soudan') ||
+    url.includes('inquiry') ||           // queryパラメータにinquiryが含まれる
     url.includes('form') ||
-    url.includes('inquiry') ||
     url.includes('mail.cgi') ||
     url.includes('mail_form') ||
-    url.includes('contact_form')
+    url.includes('contact_form') ||
+    (url.includes('?') && (url.includes('group=') || url.includes('page=')))  // クエリパラメータ付きフォーム
   )
   
   const generalUrls = cleanUrls.filter(url => 
