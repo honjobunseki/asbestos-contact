@@ -777,14 +777,91 @@ app.get('/', (c) => {
             function displayResult(data, city) {
                 const resultContent = document.getElementById('resultContent');
                 
-                // 都道府県・市町村名を表示用に整形（担当部署の前に追加）
-                const displayDepartment = data.department ? \`\${city} \${data.department}\` : \`\${city} 環境課・公害対策課（要確認）\`;
-                
                 // 都道府県のみの検索かどうかを判定
                 const isPrefectureOnly = city.match(/^.+?(都|道|府|県)$/);
                 
                 // 市町村名のみを抽出（都道府県名を除く）、都道府県のみの場合はそのまま
                 const cityNameOnly = isPrefectureOnly ? city : city.replace(/^.+?(都|道|府|県)/, '');
+                
+                // データが見つからない場合の表示
+                if (data.error && data.error.includes('登録されていません')) {
+                    resultContent.innerHTML = \`
+                        <div class="space-y-6">
+                            <!-- エラー通知 -->
+                            <div class="bg-red-50 border-l-4 border-red-500 p-4">
+                                <div class="flex items-start">
+                                    <i class="fas fa-exclamation-circle text-red-500 text-2xl mr-3 mt-1"></i>
+                                    <div>
+                                        <h3 class="text-lg font-bold text-red-800 mb-2">データが見つかりませんでした</h3>
+                                        <p class="text-sm text-red-700">
+                                            <strong>\${city}</strong> のアスベスト通報先情報はまだデータベースに登録されていません。
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 代替案の提示 -->
+                            <div class="bg-blue-50 border-l-4 border-blue-500 p-4">
+                                <h3 class="text-lg font-bold text-blue-800 mb-3">
+                                    <i class="fas fa-lightbulb mr-2"></i>
+                                    お問い合わせ方法
+                                </h3>
+                                <div class="space-y-3 text-sm text-blue-900">
+                                    <div class="flex items-start">
+                                        <i class="fas fa-phone text-blue-600 mr-2 mt-1"></i>
+                                        <div>
+                                            <p class="font-semibold">1. 市役所・町役場の代表電話に連絡</p>
+                                            <p class="text-blue-800">「アスベストの通報先を教えてください」と伝えると、担当部署に繋いでもらえます。</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-start">
+                                        <i class="fas fa-search text-blue-600 mr-2 mt-1"></i>
+                                        <div>
+                                            <p class="font-semibold">2. 公式サイトで検索</p>
+                                            <p class="text-blue-800">「\${city} アスベスト 通報」で検索すると、担当部署が見つかります。</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-start">
+                                        <i class="fas fa-building text-blue-600 mr-2 mt-1"></i>
+                                        <div>
+                                            <p class="font-semibold">3. 主な担当部署</p>
+                                            <p class="text-blue-800">環境課、環境保全課、公害対策課などが窓口になっています。</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Google検索ボタン -->
+                            <div class="text-center">
+                                <a href="https://www.google.com/search?q=\${encodeURIComponent(city + ' アスベスト 通報 連絡先')}" 
+                                   target="_blank" 
+                                   class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition transform hover:scale-105 shadow-lg">
+                                    <i class="fab fa-google mr-2"></i>
+                                    \${city}のアスベスト通報先を検索
+                                </a>
+                            </div>
+
+                            <!-- 参考情報 -->
+                            <div class="bg-gray-50 border border-gray-300 rounded-lg p-4">
+                                <h3 class="text-sm font-bold text-gray-700 mb-2">
+                                    <i class="fas fa-info-circle mr-1"></i>
+                                    参考：アスベスト通報の一般的な流れ
+                                </h3>
+                                <ol class="text-xs text-gray-600 space-y-1 list-decimal list-inside">
+                                    <li>市区町村の環境課・公害対策課に連絡</li>
+                                    <li>現場の住所・状況を伝える</li>
+                                    <li>担当者が現地調査を実施</li>
+                                    <li>必要に応じて指導・改善命令</li>
+                                </ol>
+                            </div>
+                        </div>
+                    \`;
+                    document.getElementById('resultArea').classList.remove('hidden');
+                    return;
+                }
+                
+                // 都道府県・市町村名を表示用に整形（担当部署の前に追加）
+                const displayDepartment = data.department ? \`\${city} \${data.department}\` : \`\${city} 環境課・公害対策課（要確認）\`;
                 
                 // メール本文を作成
                 const emailSubject = encodeURIComponent('アスベストに関する問い合わせ');
@@ -972,9 +1049,8 @@ app.delete('/api/search-logs', (c) => {
   return c.json({ message: 'ログをクリアしました' })
 })
 
-// API: 問い合わせ先検索（Perplexity API使用）
+// API: 問い合わせ先検索（手動データベースのみ使用）
 app.post('/api/search', async (c) => {
-  const startTime = Date.now()
   const { city, inquiryType } = await c.req.json()
   
   try {
@@ -1001,116 +1077,30 @@ app.post('/api/search', async (c) => {
       return c.json(result)
     }
     
-    // 問い合わせタイプに応じた部局を決定
-    const targetDepartments = getTargetDepartments(inquiryType)
-
-    // Perplexity APIキーを取得
-    const apiKey = c.env.PERPLEXITY_API_KEY
-    
-    if (!apiKey) {
-      console.error('PERPLEXITY_API_KEY is not set')
-      return c.json({ 
-        error: 'APIキーが設定されていません',
-        department: city + ' の環境課・公害対策課',
-        phone: '市役所の代表電話にお問い合わせください',
-        url: null
-      }, 500)
-    }
-
-    // Perplexity APIで検索
-    const prompt = `${city}の公式ホームページから、アスベスト（石綿）に関する以下の部局の連絡先を全て教えてください：
-
-【検索対象部局】
-1. 環境部局（環境課・環境保全課・公害対策課など）
-2. 建築部局（建築指導課・都市整備部など）
-3. 廃棄物部局（廃棄物対策課・資源循環課など）
-4. 保健部局（保健所・健康増進課など）
-5. 労働基準監督署（該当地域を管轄する監督署）
-
-【各部局について以下の情報を記載】
-- 担当部署名: 正式な部署名を記載
-- 電話番号: ハイフン付きで記載（例: 03-1234-5678）
-- メールアドレス: 必ず探してそのまま記載（例: mk-kagaku@city.yokohama.lg.jp）
-- 問い合わせフォームURL: URLをそのまま記載
-- 公式ページURL: 部局のページURLをそのまま記載
-
-【重要な探し方】
-✅ 各部局のページを必ず最下部までスクロールして確認
-✅ 問い合わせフォームは「このページに関するお問い合わせ」セクションにリンクがあります
-✅ メールアドレスはページ最下部の「連絡先」「問い合わせ先」に記載
-✅ URLは完全な形（クエリパラメータ含む）で記載
-
-【回答フォーマット】
-以下の形式で各部局の情報を記載してください：
-
-## 環境部局
-- 部署名: ○○環境課
-- 電話: 0X-XXXX-XXXX
-- メール: xxx@city.xx.lg.jp
-- フォーム: https://...
-- ページ: https://...
-
-## 建築部局
-（同様に記載）
-
-## 廃棄物部局
-（同様に記載）
-
-## 保健部局
-（同様に記載）
-
-## 労働基準監督署
-（同様に記載）
-
-※見つからない部局は「情報なし」と記載`
-
-    const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'sonar-pro',  // より高精度なモデルを使用
-        messages: [
-          {
-            role: 'system',
-            content: 'あなたは日本の行政情報に詳しい専門アシスタントです。【最重要指示】ウェブページを検索する際は、必ずページの最初から最後まで全体をスクロールして確認してください。特に「このページに関するお問い合わせ」「お問い合わせは専用フォームをご利用ください」「このページへのお問合せ」「お問い合わせフォーム」「連絡先」「問い合わせ先」「担当部署」などのセクションは必ずページの最下部にあります。これらのテキストの直後にあるリンクを必ず確認してください。問い合わせフォームのリンクを最優先で探してください（/inquiry/、/form/、/contact/、/contacts/、/cgi-bin/contacts/ などのURLパターン）。クエリパラメータ付きURL（?以降も含む）も必ず完全な形で記載してください。電話番号が見つかったページでは、必ず最下部までスクロールして、メールアドレス（@city.○○.lg.jp、@pref.○○.lg.jp）を探してください。メールアドレスや問い合わせフォームを見つけたら、必ずそのまま記載してください。「なし」と回答する前に、必ずページ最下部を確認してください。URLを記載する際は、引用番号や括弧を付けず、完全なURL（クエリパラメータも含む）のみを記載してください。'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.1,  // より確定的な回答を得る
-        max_tokens: 1200,  // より詳細な情報を取得
-        search_domain_filter: ['go.jp', 'lg.jp'],  // 日本の公式ドメインに限定
-        return_citations: true  // 引用情報を返す
-      })
-    })
-
-    if (!perplexityResponse.ok) {
-      throw new Error(`Perplexity API error: ${perplexityResponse.status}`)
-    }
-
-    const data = await perplexityResponse.json()
-    const aiResponse = data.choices[0].message.content
-
-    // レスポンスから情報を抽出
-    const result = parseAIResponse(aiResponse, city)
+    // データが見つからない場合
+    console.log(`❌ データベースに登録されていません: ${city}`)
     
     // ログを記録
     searchLogs.push({
       city,
       timestamp: new Date().toISOString(),
-      success: true,
-      source: 'api',
-      hasPhone: !!result.phone && !result.phone.includes('代表電話'),
-      hasEmail: !!result.email,
-      hasFormUrl: !!result.formUrl
+      success: false,
+      source: 'manual',
+      hasPhone: false,
+      hasEmail: false,
+      hasFormUrl: false,
+      error: 'データベースに登録されていません'
     })
     
-    return c.json(result)
+    return c.json({ 
+      error: 'データベースに登録されていません',
+      department: `${city} の環境課`,
+      phone: '市役所・町役場の代表電話にお問い合わせください',
+      email: null,
+      formUrl: null,
+      pageUrl: null,
+      message: 'この市町村のデータはまだ登録されていません。市役所・町役場の代表電話にお問い合わせいただくか、公式サイトをご確認ください。'
+    }, 404)
     
   } catch (error) {
     console.error('Search error:', error)
@@ -1120,7 +1110,7 @@ app.post('/api/search', async (c) => {
       city,
       timestamp: new Date().toISOString(),
       success: false,
-      source: 'api',
+      source: 'manual',
       hasPhone: false,
       hasEmail: false,
       hasFormUrl: false,
@@ -1131,170 +1121,37 @@ app.post('/api/search', async (c) => {
       error: '検索中にエラーが発生しました',
       department: '情報を取得できませんでした',
       phone: '市役所の代表電話にお問い合わせください',
-      url: null
+      email: null,
+      formUrl: null,
+      pageUrl: null
     }, 500)
   }
 })
 
+/* 
+===========================================
+Perplexity API関連のコード（バックグラウンド保管）
+===========================================
+
+将来的にAPI検索機能を再度有効にする場合は、以下のコードを使用してください。
+
 // 問い合わせタイプに応じた対象部局を決定
 function getTargetDepartments(inquiryType: string): string[] {
   const departmentMap: Record<string, string[]> = {
-    'survey': ['環境部局'],           // 事前調査・届出の不正
-    'prevention': ['環境部局'],       // 飛散防止が不十分
-    'safety': ['労働基準監督署'],     // 作業員の安全
-    'waste': ['廃棄物部局'],          // 廃棄物処理の不正
-    'health': ['保健部局', '労働基準監督署']  // 健康被害・不安
+    'survey': ['環境部局'],
+    'prevention': ['環境部局'],
+    'safety': ['労働基準監督署'],
+    'waste': ['廃棄物部局'],
+    'health': ['保健部局', '労働基準監督署']
   }
-  
   return departmentMap[inquiryType] || ['環境部局']
 }
 
-// AIレスポンスをパースする関数
-function parseAIResponse(response: string, city: string) {
-  // URLを抽出して綺麗にする
-  const urlMatches = response.match(/https?:\/\/[^\s\)\]\}]+/g) || []
-  
-  // URLのクリーニング
-  const cleanUrls = urlMatches.map(url => {
-    // 引用番号や余計な文字を削除（クエリパラメータは保持）
-    let cleaned = url
-      // 引用番号のパターン（あらゆる形式に対応）
-      .replace(/\[[0-9]+$/g, '')           // [1 のような末尾
-      .replace(/\[[0-9]+\]$/g, '')         // [1] のような末尾
-      .replace(/\[[0-9]+\].*$/g, '')       // [1][2]... のような連続（ただし?以降は保持）
-    
-    // クエリパラメータの前後で分割
-    const hasQuery = cleaned.includes('?')
-    const parts = cleaned.split('?')
-    const baseUrl = parts[0]
-    const queryString = parts[1] || ''
-    
-    // ベースURLのクリーニング
-    const cleanedBase = baseUrl
-      .replace(/\[.*$/g, '')               // [ 以降を全削除
-      // 括弧類
-      .replace(/[\)）\]】\}]+$/g, '')      // 末尾の閉じ括弧を削除
-      .replace(/（.*$/g, '')               // （以降を削除
-      // 句読点
-      .replace(/[、。，\.;；]+$/g, '')     // 末尾の句読点を削除
-      // その他の記号
-      .replace(/[\s]+$/g, '')              // 末尾の空白を削除
-      .replace(/["\'\`]+$/g, '')           // 末尾の引用符を削除
-    
-    // クエリ文字列のクリーニング（必要最小限）
-    const cleanedQuery = queryString
-      .replace(/[\)）\]】\}]+$/g, '')      // 末尾の閉じ括弧を削除
-      .replace(/[、。，\.;；]+$/g, '')     // 末尾の句読点を削除
-      .replace(/[\s]+$/g, '')              // 末尾の空白を削除
-      .replace(/["\'\`]+$/g, '')           // 末尾の引用符を削除
-    
-    // 再結合
-    return hasQuery && cleanedQuery ? `${cleanedBase}?${cleanedQuery}` : cleanedBase
-  })
-  
-  // フォームURLと一般URLを分類
-  const formUrls = cleanUrls.filter(url => 
-    url.includes('/cgi-bin/contacts') ||  // 最優先: /cgi-bin/contacts/（桐生市など）
-    url.includes('/inquiry') ||          // /inquiry/（北海道など）
-    url.includes('/contacts') ||         // /contacts/パターン
-    url.includes('/form') || 
-    url.includes('/contact') ||
-    url.includes('/otoiawase') ||
-    url.includes('/mail') ||
-    url.includes('/soudan') ||
-    url.includes('inquiry') ||           // queryパラメータにinquiryが含まれる
-    url.includes('contacts') ||          // queryパラメータにcontactsが含まれる
-    url.includes('form') ||
-    url.includes('mail.cgi') ||
-    url.includes('mail_form') ||
-    url.includes('contact_form') ||
-    (url.includes('?') && (url.includes('group=') || url.includes('page=')))  // クエリパラメータ付きフォーム
-  )
-  
-  const generalUrls = cleanUrls.filter(url => 
-    !formUrls.includes(url) && 
-    (url.includes('city.') || url.includes('pref.') || url.includes('.lg.jp') || url.includes('.go.jp'))
-  )
-  
-  // 最適なフォームURLを選択
-  const formUrl = formUrls.sort((a, b) => b.length - a.length)[0] || null
-  
-  // 最適な一般URLを選択（長いものを優先）
-  const pageUrl = generalUrls.sort((a, b) => b.length - a.length)[0] || cleanUrls[0] || null
+// Perplexity APIのプロンプトやparseAIResponse関数など、
+// 約300行のコードがここに保存されていました。
+// 必要に応じて、Gitの履歴から復元できます。
 
-  // メールアドレスを抽出（複数のパターンを試す）
-  const emailMatches = response.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g)
-  let email = null
-  if (emailMatches && emailMatches.length > 0) {
-    // .lg.jp または .go.jp のメールアドレスを優先
-    const officialEmails = emailMatches.filter(e => e.includes('.lg.jp') || e.includes('.go.jp'))
-    email = officialEmails[0] || emailMatches[0]
-  }
-  
-  // デバッグ用ログ
-  console.log('AI Response:', response)
-  console.log('Extracted Email:', email)
-  console.log('All Email Matches:', emailMatches)
-
-  // 電話番号を抽出（日本の電話番号形式）
-  const phoneMatches = response.match(/0\d{1,4}-\d{1,4}-\d{4}/g) || 
-                       response.match(/0\d{9,10}/g)
-  
-  let phone = null
-  if (phoneMatches) {
-    // ハイフン付きを優先
-    phone = phoneMatches.find(p => p.includes('-')) || phoneMatches[0]
-    // ハイフンがない場合は追加
-    if (phone && !phone.includes('-')) {
-      // 03-1234-5678 のような形式に変換
-      if (phone.startsWith('0')) {
-        const areaCode = phone.substring(0, phone.length === 10 ? 3 : 4)
-        const rest = phone.substring(areaCode.length)
-        const middle = rest.substring(0, 4)
-        const last = rest.substring(4)
-        phone = `${areaCode}-${middle}-${last}`
-      }
-    }
-  }
-
-  // 部署名を抽出
-  let department = null
-  const deptPatterns = [
-    /部署[名]?[：:]\s*([^\n。、]+)/,
-    /担当[部署]*[：:]\s*([^\n。、]+)/,
-    /([^\n。、]*(?:環境|公害|建築|都市計画|まちづくり|生活衛生)[^\n。、]*(?:課|部|係|センター|局))/,
-  ]
-  
-  for (const pattern of deptPatterns) {
-    const match = response.match(pattern)
-    if (match) {
-      department = match[1].trim()
-      break
-    }
-  }
-  
-  // Markdownの太字記号と引用番号を削除、余計な説明文を削除
-  if (department) {
-    department = department
-      .replace(/\*\*/g, '')                      // 太字記号削除
-      .replace(/\[\d+\]/g, '')                   // [1][2]のような引用番号削除
-      .replace(/\[\d+$/g, '')                    // 末尾の[1のような不完全な引用削除
-      .replace(/^[-ー\s]+/, '')                  // 先頭のハイフンやスペース削除
-      .replace(/\s*[-ー]\s*.+$/, '')             // ハイフン以降の説明文を削除
-      .replace(/^主に.+?は/, '')                 // 「主に○○は」のような説明削除
-      .replace(/^.+?(?=(?:市役所|町役場|村役場|都庁|県庁|府庁|道庁))/, '')  // 「○○市役所」より前の説明削除
-      .trim()
-  }
-
-  return {
-    department: department || `${city} 環境課・公害対策課（要確認）`,
-    phone: phone || '市区町村の代表電話にお問い合わせください',
-    email: email,
-    formUrl: formUrl,
-    pageUrl: pageUrl,
-    aiResponse: response,
-    sources: cleanUrls
-  }
-}
+===========================================
+*/
 
 export default app
