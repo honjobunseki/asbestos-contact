@@ -428,13 +428,19 @@ app.get('/', (c) => {
                                 メールアドレス
                             </p>
                             \${data.email ? \`
-                                <a href="mailto:\${data.email}?subject=\${emailSubject}&body=\${emailBody}" 
-                                   class="inline-block bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg transition transform hover:scale-105 shadow-md mb-2">
+                                <button 
+                                   onclick="(function(){ 
+                                       const mailtoLink = 'mailto:\${data.email}?subject=\${emailSubject}&body=\${emailBody}';
+                                       window.location.href = mailtoLink;
+                                   })()"
+                                   class="inline-block bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg transition transform hover:scale-105 shadow-md mb-2 cursor-pointer">
                                     <i class="fas fa-envelope mr-2"></i>
                                     メールを送信
-                                </a>
-                                <p class="text-sm text-gray-600 mt-2">\${data.email}</p>
-                                <p class="text-xs text-gray-500 mt-1">※クリックするとメールアプリが起動し、件名と本文が自動入力されます</p>
+                                </button>
+                                <p class="text-sm text-gray-600 mt-2">
+                                    <a href="mailto:\${data.email}" class="text-blue-600 hover:underline">\${data.email}</a>
+                                </p>
+                                <p class="text-xs text-gray-500 mt-1">※クリックするとデフォルトのメールアプリが直接起動し、件名と本文が自動入力されます</p>
                             \` : \`
                                 <p class="text-gray-600 bg-gray-50 p-3 rounded-lg">
                                     <i class="fas fa-info-circle text-blue-500 mr-1"></i>
