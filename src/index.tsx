@@ -887,101 +887,44 @@ app.get('/', (c) => {
                 );
                 
                 resultContent.innerHTML = \`
-                    <div class="space-y-4">
-                        <!-- 注意事項 -->
-                        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-3 mb-4">
-                            <p class="text-sm text-yellow-800">
-                                <i class="fas fa-exclamation-triangle mr-1"></i>
-                                この情報はAIによる自動検索結果です。必ず公式サイトで最新情報をご確認ください。
-                            </p>
-                        </div>
-
-                        <!-- 担当部署 -->
-                        <div>
-                            <p class="font-semibold text-gray-700 mb-1">
-                                <i class="fas fa-building text-blue-500 mr-1"></i>
-                                担当部署
-                            </p>
-                            <p class="text-gray-800 text-lg">\${displayDepartment}</p>
-                        </div>
-                        
-                        <!-- 電話番号 -->
-                        <div>
-                            <p class="font-semibold text-gray-700 mb-1">
-                                <i class="fas fa-phone text-green-500 mr-1"></i>
-                                電話番号
-                            </p>
-                            <p class="text-gray-800 text-lg">
-                                <a href="tel:\${data.phone}" class="text-blue-600 hover:underline">
-                                    \${data.phone || '情報なし'}
-                                </a>
-                            </p>
-                        </div>
-                        
-                        <!-- メールアドレス -->
-                        <div>
-                            <p class="font-semibold text-gray-700 mb-1">
-                                <i class="fas fa-envelope text-purple-500 mr-1"></i>
-                                メールアドレス
-                            </p>
-                            \${data.email ? \`
-                                <button 
-                                   onclick="(function(){ 
-                                       const mailtoLink = 'mailto:\${data.email}?subject=\${emailSubject}&body=\${emailBody}';
-                                       window.location.href = mailtoLink;
-                                   })()"
-                                   class="inline-block bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg transition transform hover:scale-105 shadow-md mb-2 cursor-pointer">
-                                    <i class="fas fa-envelope mr-2"></i>
-                                    メールを送信
-                                </button>
-                                <p class="text-sm text-gray-600 mt-2">
-                                    <a href="mailto:\${data.email}" class="text-blue-600 hover:underline">\${data.email}</a>
-                                </p>
-                                <p class="text-xs text-gray-500 mt-1">※クリックするとデフォルトのメールアプリが直接起動し、件名と本文が自動入力されます</p>
-                            \` : \`
-                                <p class="text-gray-600 bg-gray-50 p-3 rounded-lg">
-                                    <i class="fas fa-info-circle text-blue-500 mr-1"></i>
-                                    メールアドレスが見つかりませんでした。電話またはFAXでお問い合わせください。
-                                </p>
-                            \`}
-                        </div>
-
-                        <!-- 問い合わせフォーム -->
-                        <div>
-                            <p class="font-semibold text-gray-700 mb-1">
-                                <i class="fas fa-edit text-orange-500 mr-1"></i>
-                                問い合わせフォーム
-                            </p>
-                            \${data.formUrl ? \`
-                                <a href="\${data.formUrl}" target="_blank" 
-                                   class="inline-block bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-6 rounded-lg transition transform hover:scale-105 shadow-md mb-2">
-                                    <i class="fas fa-external-link-alt mr-2"></i>
-                                    フォームを開く
-                                </a>
-                                <p class="text-sm text-gray-600 mt-2 break-all">\${data.formUrl}</p>
-                                <p class="text-xs text-gray-500 mt-1">※クリックすると問い合わせフォームが新しいタブで開きます</p>
-                            \` : \`
-                                <p class="text-gray-600 bg-gray-50 p-3 rounded-lg">
-                                    <i class="fas fa-info-circle text-blue-500 mr-1"></i>
-                                    オンライン問い合わせフォームが見つかりませんでした。電話またはメールでお問い合わせください。
-                                </p>
-                            \`}
-                        </div>
-
-                        <!-- 区切り線 -->
-                        <div class="border-t-2 border-gray-200 my-4"></div>
-
-                        <!-- 公式ページを開くボタン（一番下） -->
+                    <div class="space-y-6">
+                        <!-- 公式ページリンク（メイン表示） -->
                         \${data.pageUrl ? \`
-                            <div class="text-center">
+                            <div class="text-center bg-gradient-to-r from-blue-50 to-indigo-50 p-8 rounded-lg border-2 border-blue-300">
+                                <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                                    <i class="fas fa-external-link-alt text-blue-600 mr-2"></i>
+                                    \${cityNameOnly}のアスベスト相談窓口
+                                </h2>
+                                <p class="text-gray-700 mb-6">
+                                    以下のボタンから公式ページにアクセスして、最新の情報をご確認ください
+                                </p>
                                 <a href="\${data.pageUrl}" target="_blank" 
-                                   class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition transform hover:scale-105 shadow-lg">
+                                   class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-10 rounded-lg transition transform hover:scale-105 shadow-lg text-lg">
                                     <i class="fas fa-external-link-alt mr-2"></i>
-                                    \${cityNameOnly}の公式ページを開く
+                                    公式ページを開く
+                                </a>
+                                <p class="text-sm text-gray-600 mt-4">
+                                    <i class="fas fa-info-circle mr-1"></i>
+                                    新しいタブで開きます
+                                </p>
+                            </div>
+                        \` : \`
+                            <div class="text-center bg-red-50 p-8 rounded-lg border-2 border-red-300">
+                                <h2 class="text-xl font-bold text-red-800 mb-4">
+                                    <i class="fas fa-exclamation-triangle mr-2"></i>
+                                    公式ページが見つかりませんでした
+                                </h2>
+                                <p class="text-gray-700 mb-4">
+                                    \${city}のアスベスト相談窓口情報が見つかりませんでした。
+                                </p>
+                                <a href="https://www.google.com/search?q=\${encodeURIComponent(city + ' アスベスト 相談')}" 
+                                   target="_blank" 
+                                   class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition transform hover:scale-105 shadow-lg">
+                                    <i class="fab fa-google mr-2"></i>
+                                    Googleで検索
                                 </a>
                             </div>
-                        \` : '<p class="text-center text-gray-600">公式ページが見つかりませんでした</p>'}
-
+                        \`}
                     </div>
                 \`;
                 document.getElementById('resultArea').classList.remove('hidden');
