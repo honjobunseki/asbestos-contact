@@ -1496,10 +1496,23 @@ app.post('/api/search', async (c) => {
       return c.json({ error: '市町村名を入力してください' }, 400)
     }
     
+    // 検索キーを作成（都道府県名付きと市町村名のみの両方で検索）
+    let searchKey = city;
+    let result = manualDatabase[searchKey];
+    
+    // 見つからない場合、都道府県名を除いた市町村名で再検索
+    if (!result) {
+      // 都道府県名を除いた市町村名を抽出
+      const cityNameOnly = city.replace(/^.+?(都|道|府|県)/, '');
+      if (cityNameOnly !== city) {
+        searchKey = cityNameOnly;
+        result = manualDatabase[searchKey];
+      }
+    }
+    
     // 手動データベースをチェック
-    if (manualDatabase[city]) {
-      console.log(`✅ 手動データベースから取得: ${city}`)
-      const result = manualDatabase[city]
+    if (result) {
+      console.log(`✅ 手動データベースから取得: ${city} (検索キー: ${searchKey})`)
       
       // ログを記録
       searchLogs.push({
