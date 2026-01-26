@@ -797,134 +797,108 @@ app.get('/', (c) => {
                 // 市町村名のみを抽出（都道府県名を除く）、都道府県のみの場合はそのまま
                 const cityNameOnly = isPrefectureOnly ? city : city.replace(/^.+?(都|道|府|県)/, '');
                 
-                // データが見つからない場合の表示
-                if (data.error && data.error.includes('登録されていません')) {
+                // エラー処理
+                if (data.error) {
                     resultContent.innerHTML = \`
-                        <div class="space-y-6">
-                            <!-- エラー通知 -->
-                            <div class="bg-red-50 border-l-4 border-red-500 p-4">
-                                <div class="flex items-start">
-                                    <i class="fas fa-exclamation-circle text-red-500 text-2xl mr-3 mt-1"></i>
-                                    <div>
-                                        <h3 class="text-lg font-bold text-red-800 mb-2">データが見つかりませんでした</h3>
-                                        <p class="text-sm text-red-700">
-                                            <strong>\${city}</strong> のアスベスト通報先情報はまだデータベースに登録されていません。
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- 代替案の提示 -->
-                            <div class="bg-blue-50 border-l-4 border-blue-500 p-4">
-                                <h3 class="text-lg font-bold text-blue-800 mb-3">
-                                    <i class="fas fa-lightbulb mr-2"></i>
-                                    お問い合わせ方法
-                                </h3>
-                                <div class="space-y-3 text-sm text-blue-900">
-                                    <div class="flex items-start">
-                                        <i class="fas fa-phone text-blue-600 mr-2 mt-1"></i>
-                                        <div>
-                                            <p class="font-semibold">1. 市役所・町役場の代表電話に連絡</p>
-                                            <p class="text-blue-800">「アスベストの通報先を教えてください」と伝えると、担当部署に繋いでもらえます。</p>
-                                        </div>
-                                    </div>
-                                    <div class="flex items-start">
-                                        <i class="fas fa-search text-blue-600 mr-2 mt-1"></i>
-                                        <div>
-                                            <p class="font-semibold">2. 公式サイトで検索</p>
-                                            <p class="text-blue-800">「\${city} アスベスト 通報」で検索すると、担当部署が見つかります。</p>
-                                        </div>
-                                    </div>
-                                    <div class="flex items-start">
-                                        <i class="fas fa-building text-blue-600 mr-2 mt-1"></i>
-                                        <div>
-                                            <p class="font-semibold">3. 主な担当部署</p>
-                                            <p class="text-blue-800">環境課、環境保全課、公害対策課などが窓口になっています。</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Google検索ボタン -->
-                            <div class="text-center">
-                                <a href="https://www.google.com/search?q=\${encodeURIComponent(city + ' アスベスト 通報 連絡先')}" 
-                                   target="_blank" 
-                                   class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition transform hover:scale-105 shadow-lg">
-                                    <i class="fab fa-google mr-2"></i>
-                                    \${city}のアスベスト通報先を検索
-                                </a>
-                            </div>
-
-                            <!-- 参考情報 -->
-                            <div class="bg-gray-50 border border-gray-300 rounded-lg p-4">
-                                <h3 class="text-sm font-bold text-gray-700 mb-2">
-                                    <i class="fas fa-info-circle mr-1"></i>
-                                    参考：アスベスト通報の一般的な流れ
-                                </h3>
-                                <ol class="text-xs text-gray-600 space-y-1 list-decimal list-inside">
-                                    <li>市区町村の環境課・公害対策課に連絡</li>
-                                    <li>現場の住所・状況を伝える</li>
-                                    <li>担当者が現地調査を実施</li>
-                                    <li>必要に応じて指導・改善命令</li>
-                                </ol>
-                            </div>
+                        <div class="text-center bg-red-50 p-8 rounded-lg border-2 border-red-300">
+                            <h2 class="text-xl font-bold text-red-800 mb-4">
+                                <i class="fas fa-exclamation-triangle mr-2"></i>
+                                情報が見つかりませんでした
+                            </h2>
+                            <p class="text-gray-700 mb-4">\${data.error}</p>
+                            <a href="https://www.google.com/search?q=\${encodeURIComponent(city + ' アスベスト 相談')}" 
+                               target="_blank" 
+                               class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition">
+                                <i class="fab fa-google mr-2"></i>
+                                Googleで検索
+                            </a>
                         </div>
                     \`;
                     document.getElementById('resultArea').classList.remove('hidden');
                     return;
                 }
                 
-                // 都道府県・市町村名を表示用に整形（担当部署の前に追加）
-                const displayDepartment = data.department ? \`\${city} \${data.department}\` : \`\${city} 環境課・公害対策課（要確認）\`;
+                // 新形式（departments配列）の処理
+                if (data.departments && data.departments.length > 0) {
+                    const departmentsHTML = data.departments.map(dept => \`
+                        <div class="bg-white border-2 border-blue-200 rounded-lg p-6 shadow-md">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4">
+                                <i class="fas fa-building text-blue-600 mr-2"></i>
+                                \${dept.category}
+                            </h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <span class="text-sm font-semibold text-gray-600">担当部署:</span>
+                                    <p class="text-gray-800">\${dept.name}</p>
+                                </div>
+                                \${dept.phone ? \`
+                                    <div>
+                                        <span class="text-sm font-semibold text-gray-600">📞 電話番号:</span>
+                                        <div class="text-gray-800 whitespace-pre-line">\${dept.phone.split('\\n').map(line => 
+                                            \`<div class="my-1"><a href="tel:\${line.replace(/[^0-9-]/g, '')}" class="text-blue-600 hover:underline">\${line}</a></div>\`
+                                        ).join('')}</div>
+                                    </div>
+                                \` : ''}
+                                \${dept.email ? \`
+                                    <div>
+                                        <span class="text-sm font-semibold text-gray-600">📧 メール:</span>
+                                        <p><a href="mailto:\${dept.email}" class="text-blue-600 hover:underline">\${dept.email}</a></p>
+                                    </div>
+                                \` : ''}
+                                \${dept.formUrl ? \`
+                                    <div>
+                                        <a href="\${dept.formUrl}" target="_blank" 
+                                           class="inline-block bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition">
+                                            <i class="fas fa-envelope mr-2"></i>
+                                            問い合わせフォーム
+                                        </a>
+                                    </div>
+                                \` : ''}
+                            </div>
+                        </div>
+                    \`).join('');
+                    
+                    resultContent.innerHTML = \`
+                        <div class="space-y-6">
+                            \${data.pageUrl ? \`
+                                <div class="text-center bg-gradient-to-r from-blue-50 to-indigo-50 p-8 rounded-lg border-2 border-blue-300">
+                                    <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                                        <i class="fas fa-external-link-alt text-blue-600 mr-2"></i>
+                                        \${cityNameOnly}のアスベスト相談窓口
+                                    </h2>
+                                    <p class="text-gray-700 mb-6">
+                                        以下のボタンから公式ページにアクセスして、最新の情報をご確認ください
+                                    </p>
+                                    <a href="\${data.pageUrl}" target="_blank" 
+                                       class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-10 rounded-lg transition transform hover:scale-105 shadow-lg text-lg">
+                                        <i class="fas fa-external-link-alt mr-2"></i>
+                                        公式ページを開く
+                                    </a>
+                                </div>
+                            \` : ''}
+                            \${departmentsHTML}
+                        </div>
+                    \`;
+                    document.getElementById('resultArea').classList.remove('hidden');
+                    return;
+                }
                 
-                // メール本文を作成
-                const emailSubject = encodeURIComponent('アスベストに関する問い合わせ');
-                const emailBody = encodeURIComponent(
-                    '【市区町村】\\n' + city + '\\n\\n' +
-                    '【担当部署】\\n' + (data.department || '') + '\\n\\n' +
-                    '【問い合わせ内容】\\n\\n\\n' +
-                    '※このメールは「アスベスト通報システム」から送信されています。'
-                );
-                
+                // 旧形式（department, phone等）の処理（後方互換性）
                 resultContent.innerHTML = \`
                     <div class="space-y-6">
-                        <!-- 公式ページリンク（メイン表示） -->
                         \${data.pageUrl ? \`
                             <div class="text-center bg-gradient-to-r from-blue-50 to-indigo-50 p-8 rounded-lg border-2 border-blue-300">
                                 <h2 class="text-2xl font-bold text-gray-800 mb-4">
                                     <i class="fas fa-external-link-alt text-blue-600 mr-2"></i>
                                     \${cityNameOnly}のアスベスト相談窓口
                                 </h2>
-                                <p class="text-gray-700 mb-6">
-                                    以下のボタンから公式ページにアクセスして、最新の情報をご確認ください
-                                </p>
                                 <a href="\${data.pageUrl}" target="_blank" 
                                    class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-10 rounded-lg transition transform hover:scale-105 shadow-lg text-lg">
                                     <i class="fas fa-external-link-alt mr-2"></i>
                                     公式ページを開く
                                 </a>
-                                <p class="text-sm text-gray-600 mt-4">
-                                    <i class="fas fa-info-circle mr-1"></i>
-                                    新しいタブで開きます
-                                </p>
                             </div>
-                        \` : \`
-                            <div class="text-center bg-red-50 p-8 rounded-lg border-2 border-red-300">
-                                <h2 class="text-xl font-bold text-red-800 mb-4">
-                                    <i class="fas fa-exclamation-triangle mr-2"></i>
-                                    公式ページが見つかりませんでした
-                                </h2>
-                                <p class="text-gray-700 mb-4">
-                                    \${city}のアスベスト相談窓口情報が見つかりませんでした。
-                                </p>
-                                <a href="https://www.google.com/search?q=\${encodeURIComponent(city + ' アスベスト 相談')}" 
-                                   target="_blank" 
-                                   class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition transform hover:scale-105 shadow-lg">
-                                    <i class="fab fa-google mr-2"></i>
-                                    Googleで検索
-                                </a>
-                            </div>
-                        \`}
+                        \` : ''}
                     </div>
                 \`;
                 document.getElementById('resultArea').classList.remove('hidden');
