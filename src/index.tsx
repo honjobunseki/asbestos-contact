@@ -1487,7 +1487,7 @@ app.delete('/api/search-logs', (c) => {
   return c.json({ message: 'ログをクリアしました' })
 })
 
-// API: 問い合わせ先検索（手動データベースのみ使用）
+// API: 問い合わせ先検索（Perplexity APIでリアルタイム検索）
 app.post('/api/search', async (c) => {
   const { city, inquiryType } = await c.req.json()
   
@@ -1496,62 +1496,99 @@ app.post('/api/search', async (c) => {
       return c.json({ error: '市町村名を入力してください' }, 400)
     }
     
-    // 検索キーを作成（都道府県名付きと市町村名のみの両方で検索）
-    let searchKey = city;
-    let result = manualDatabase[searchKey];
+    // Perplexity APIキーを取得
+    const apiKey = c.env.PERPLEXITY_API_KEY
     
-    // 見つからない場合、都道府県名を除いた市町村名で再検索
-    if (!result) {
-      // 都道府県名を除いた市町村名を抽出
-      const cityNameOnly = city.replace(/^.+?(都|道|府|県)/, '');
-      if (cityNameOnly !== city) {
-        searchKey = cityNameOnly;
-        result = manualDatabase[searchKey];
-      }
+    if (!apiKey) {
+      console.error('PERPLEXITY_API_KEY is not set')
+      return c.json({ 
+        error: 'APIキーが設定されていません',
+        department: city + ' の環境課・公害対策課',
+        phone: '市役所の代表電話にお問い合わせください',
+        pageUrl: null
+      }, 500)
     }
-    
-    // 手動データベースをチェック
-    if (result) {
-      console.log(`✅ 手動データベースから取得: ${city} (検索キー: ${searchKey})`)
-      
-      // ログを記録
-      searchLogs.push({
-        city,
-        timestamp: new Date().toISOString(),
-        success: true,
-        source: 'manual',
-        hasPhone: !!result.phone,
-        hasEmail: !!result.email,
-        hasFormUrl: !!result.formUrl
+
+    // Perplexity APIで検索（公式ページURLのみを取得）
+    const prompt = `${city}の公式ホームページから、アスベスト（石綿）に関する相談・通報窓口のページURLを教えてください。
+
+【重要な指示】
+- 必ず${city}の公式サイト（.lg.jpドメイン）のURLを探してください
+- アスベスト、石綿、建築物の解体、大気汚染などに関するページ
+- 環境課、環境保全課、公害対策課、建築指導課などの担当ページ
+- URLは完全な形（https://から始まる）で記載してください
+
+【回答フォーマット】
+URL: https://...
+
+※URLのみを回答してください。説明は不要です。`;
+
+    const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'sonar',
+        messages: [
+          {
+            role: 'system',
+            content: 'あなたは日本の行政情報に詳しい専門アシスタントです。指定された市町村の公式サイトから、アスベスト関連の相談窓口ページのURLを正確に見つけて回答してください。URLのみを簡潔に回答してください。'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.1,
+        max_tokens: 200,
+        search_domain_filter: ['go.jp', 'lg.jp'],
+        return_citations: true
       })
-      
-      return c.json(result)
+    })
+
+    if (!perplexityResponse.ok) {
+      throw new Error(`Perplexity API error: ${perplexityResponse.status}`)
     }
-    
-    // データが見つからない場合
-    console.log(`❌ データベースに登録されていません: ${city}`)
+
+    const data = await perplexityResponse.json()
+    const aiResponse = data.choices[0].message.content
+
+    // URLを抽出
+    const urlMatch = aiResponse.match(/https?:\/\/[^\s\)]+/);
+    const pageUrl = urlMatch ? urlMatch[0].replace(/[,.)]+$/, '') : null;
+
+    console.log(`🔍 Perplexity API検索: ${city}`)
+    console.log(`📄 検出されたURL: ${pageUrl}`)
     
     // ログを記録
     searchLogs.push({
       city,
       timestamp: new Date().toISOString(),
-      success: false,
-      source: 'manual',
+      success: !!pageUrl,
+      source: 'api',
       hasPhone: false,
       hasEmail: false,
-      hasFormUrl: false,
-      error: 'データベースに登録されていません'
+      hasFormUrl: false
     })
     
-    return c.json({ 
-      error: 'データベースに登録されていません',
-      department: `${city} の環境課`,
-      phone: '市役所・町役場の代表電話にお問い合わせください',
-      email: null,
-      formUrl: null,
-      pageUrl: null,
-      message: 'この市町村のデータはまだ登録されていません。市役所・町役場の代表電話にお問い合わせいただくか、公式サイトをご確認ください。'
-    }, 404)
+    if (pageUrl) {
+      return c.json({
+        department: `${city} アスベスト相談窓口`,
+        phone: null,
+        email: null,
+        formUrl: null,
+        pageUrl: pageUrl
+      })
+    } else {
+      return c.json({
+        error: '公式ページが見つかりませんでした',
+        department: `${city} の環境課`,
+        phone: '市役所の代表電話にお問い合わせください',
+        pageUrl: null
+      }, 404)
+    }
     
   } catch (error) {
     console.error('Search error:', error)
