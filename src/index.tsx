@@ -1454,6 +1454,13 @@ const manualDatabase: Record<string, any> = {
     "email": "k_hozen@city.toyota.aichi.jp",
     "formUrl": null,
     "pageUrl": "https://www.city.toyota.aichi.jp/jigyousha/tetsuzuki/kankyouhozen/1027101/index.html"
+  },
+  "つくば市": {
+    "department": "保健部 健康増進課",
+    "phone": "029-883-1111",
+    "email": null,
+    "formUrl": null,
+    "pageUrl": "https://www.city.tsukuba.lg.jp/shisetsu/kenko/1001530.html"
   }
 }
 
