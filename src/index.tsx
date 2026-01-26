@@ -1476,6 +1476,134 @@ const searchLogs: Array<{
   error?: string
 }> = []
 
+// AIの応答をパースして部署情報を抽出
+function parseAIResponse(aiResponse: string, city: string) {
+  const departments: Array<{
+    category: string
+    name: string
+    phone: string | null
+    email: string | null
+    formUrl: string | null
+  }> = []
+
+  // 各ブロックを分割（空行で区切られている）
+  const blocks = aiResponse.split(/\n\s*\n/)
+  
+  for (const block of blocks) {
+    const lines = block.trim().split('\n')
+    let category = ''
+    let name = ''
+    let phone = null
+    let email = null
+    let formUrl = null
+    
+    for (const line of lines) {
+      const trimmedLine = line.trim()
+      
+      // カテゴリー
+      if (trimmedLine.match(/^(?:カテゴリー|種別|区分)[:：]/)) {
+        category = trimmedLine.replace(/^(?:カテゴリー|種別|区分)[:：]\s*/, '').trim()
+      }
+      
+      // 部署名
+      if (trimmedLine.match(/^(?:部署名|担当部署|窓口)[:：]/)) {
+        name = trimmedLine.replace(/^(?:部署名|担当部署|窓口)[:：]\s*/, '').trim()
+        // 余計な説明を削除
+        name = name.replace(/\s*[-ー－]\s*.+$/, '').trim()
+        name = name.replace(/\s*（.+?）\s*$/, '').trim()
+      }
+      
+      // 電話番号
+      if (trimmedLine.match(/^(?:電話番号|TEL|電話)[:：]/)) {
+        phone = trimmedLine.replace(/^(?:電話番号|TEL|電話)[:：]\s*/, '').trim()
+        phone = phone.replace(/なし/gi, '').trim() || null
+      }
+      
+      // メールアドレス
+      if (trimmedLine.match(/^(?:メールアドレス|メール|Email|E-mail)[:：]/)) {
+        email = trimmedLine.replace(/^(?:メールアドレス|メール|Email|E-mail)[:：]\s*/, '').trim()
+        email = email.replace(/なし/gi, '').trim() || null
+      }
+      
+      // 問い合わせフォーム
+      if (trimmedLine.match(/^(?:問い合わせフォーム|フォーム|お問い合わせ)[:：]/)) {
+        formUrl = trimmedLine.replace(/^(?:問い合わせフォーム|フォーム|お問い合わせ)[:：]\s*/, '').trim()
+        const urlMatch = formUrl.match(/https?:\/\/[^\s]+/)
+        formUrl = urlMatch ? urlMatch[0].replace(/[,.)]+$/, '') : null
+      }
+    }
+    
+    // 部署名と電話番号がある場合のみ追加
+    if (name && (phone || email || formUrl)) {
+      departments.push({
+        category: category || '相談窓口',
+        name,
+        phone,
+        email,
+        formUrl
+      })
+    }
+  }
+  
+  return departments
+}
+
+// 区役所の情報をマージ（同じカテゴリーの区をまとめる）
+function mergeWardDepartments(departments: Array<{
+  category: string
+  name: string
+  phone: string | null
+  email: string | null
+  formUrl: string | null
+}>) {
+  const wardEntries: typeof departments = []
+  const otherEntries: typeof departments = []
+  
+  for (const dept of departments) {
+    // 区役所かどうかを判定
+    const isWardOffice = dept.category && (
+      dept.category.includes('区役所') || 
+      dept.category.includes('各区役所') ||
+      dept.category.includes('解体工事')
+    )
+    const isWardName = dept.name && dept.name.match(/[^\s]+区/)
+    
+    if (isWardOffice || isWardName) {
+      wardEntries.push(dept)
+    } else {
+      otherEntries.push(dept)
+    }
+  }
+  
+  // 区役所をマージ
+  if (wardEntries.length > 0) {
+    // カテゴリーを統一
+    const category = wardEntries[0].category || '区役所窓口'
+    
+    // 各区の電話番号をまとめる
+    const phones = wardEntries
+      .map(d => {
+        const wardName = d.name.match(/([^\s]+区)/)?.[1] || d.name
+        return d.phone ? `${wardName} ${d.phone}` : null
+      })
+      .filter(p => p)
+      .join('\n')
+    
+    // マージされた区役所エントリー
+    const mergedWard = {
+      category,
+      name: '各区役所',
+      phone: phones || null,
+      email: null,
+      formUrl: null
+    }
+    
+    return [mergedWard, ...otherEntries]
+  }
+  
+  return otherEntries
+}
+
 // API: 検索ログを取得
 app.get('/api/search-logs', (c) => {
   return c.json(searchLogs)
@@ -1509,19 +1637,31 @@ app.post('/api/search', async (c) => {
       }, 500)
     }
 
-    // Perplexity APIで検索（公式ページURLのみを取得）
-    const prompt = `${city}の公式ホームページから、アスベスト（石綿）に関する相談・通報窓口のページURLを教えてください。
+    // Perplexity APIで検索（詳細情報を取得）
+    const prompt = `${city}の公式ホームページから、アスベスト（石綿）に関する相談・通報窓口の情報を詳しく教えてください。
+
+【取得してほしい情報】
+1. 公式ページのURL（.lg.jpドメイン）
+2. 担当部署名
+3. 電話番号
+4. メールアドレス（あれば）
+5. 問い合わせフォームURL（あれば）
 
 【重要な指示】
-- 必ず${city}の公式サイト（.lg.jpドメイン）のURLを探してください
-- アスベスト、石綿、建築物の解体、大気汚染などに関するページ
-- 環境課、環境保全課、公害対策課、建築指導課などの担当ページ
-- URLは完全な形（https://から始まる）で記載してください
+- すべての窓口情報を網羅的に記載してください
+- 複数の部署がある場合は、すべて記載してください
+- 区役所がある場合は、各区の情報も記載してください
+- 電話番号は必ず記載してください
 
 【回答フォーマット】
-URL: https://...
+カテゴリー: ○○○
+部署名: ○○課
+電話番号: 000-0000-0000
+メールアドレス: xxx@example.jp
+問い合わせフォーム: https://...
+公式ページURL: https://...
 
-※URLのみを回答してください。説明は不要です。`;
+（複数ある場合は上記を繰り返し）`;
 
     const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
@@ -1542,7 +1682,7 @@ URL: https://...
           }
         ],
         temperature: 0.1,
-        max_tokens: 200,
+        max_tokens: 2000,
         search_domain_filter: ['go.jp', 'lg.jp'],
         return_citations: true
       })
@@ -1555,38 +1695,45 @@ URL: https://...
     const data = await perplexityResponse.json()
     const aiResponse = data.choices[0].message.content
 
-    // URLを抽出
-    const urlMatch = aiResponse.match(/https?:\/\/[^\s\)]+/);
-    const pageUrl = urlMatch ? urlMatch[0].replace(/[,.)]+$/, '') : null;
-
     console.log(`🔍 Perplexity API検索: ${city}`)
+    console.log(`📝 AI応答:\n${aiResponse}`)
+
+    // AIの応答をパースして部署情報を抽出
+    const departments = parseAIResponse(aiResponse, city)
+    
+    // 区役所の情報をマージ（同じカテゴリーの区をまとめる）
+    const mergedDepartments = mergeWardDepartments(departments)
+    
+    console.log(`📊 抽出された部署数: ${mergedDepartments.length}`)
+
+    // URLを抽出（公式ページURL）
+    const urlMatch = aiResponse.match(/(?:公式ページURL|URL)[:：]\s*(https?:\/\/[^\s\)]+)/);
+    const pageUrl = urlMatch ? urlMatch[1].replace(/[,.)]+$/, '') : null;
+
     console.log(`📄 検出されたURL: ${pageUrl}`)
     
     // ログを記録
     searchLogs.push({
       city,
       timestamp: new Date().toISOString(),
-      success: !!pageUrl,
+      success: mergedDepartments.length > 0,
       source: 'api',
-      hasPhone: false,
-      hasEmail: false,
-      hasFormUrl: false
+      hasPhone: mergedDepartments.some(d => d.phone),
+      hasEmail: mergedDepartments.some(d => d.email),
+      hasFormUrl: mergedDepartments.some(d => d.formUrl)
     })
     
-    if (pageUrl) {
+    if (mergedDepartments.length > 0) {
       return c.json({
-        department: `${city} アスベスト相談窓口`,
-        phone: null,
-        email: null,
-        formUrl: null,
+        departments: mergedDepartments,
         pageUrl: pageUrl
       })
     } else {
       return c.json({
-        error: '公式ページが見つかりませんでした',
+        error: '窓口情報が見つかりませんでした',
         department: `${city} の環境課`,
         phone: '市役所の代表電話にお問い合わせください',
-        pageUrl: null
+        pageUrl: pageUrl
       }, 404)
     }
     
