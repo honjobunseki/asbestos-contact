@@ -1622,6 +1622,33 @@ app.post('/api/search', async (c) => {
       return c.json({ error: '市町村名を入力してください' }, 400)
     }
     
+    console.log(`🔍 検索開始: ${city}`)
+    
+    // D1キャッシュをチェック
+    if (c.env?.DB) {
+      try {
+        const cached = await c.env.DB.prepare(
+          'SELECT departments, page_url, created_at FROM search_cache WHERE city = ?'
+        ).bind(city).first()
+        
+        if (cached) {
+          const departments = JSON.parse(cached.departments)
+          const minutesAgo = Math.floor((Date.now() - new Date(cached.created_at).getTime()) / 60000)
+          console.log(`💾 キャッシュから取得: ${city} (${minutesAgo}分前のデータ)`)
+          
+          return c.json({
+            departments,
+            pageUrl: cached.page_url,
+            cached: true,
+            minutesAgo
+          })
+        }
+      } catch (cacheError) {
+        console.warn('⚠️ キャッシュ取得エラー:', cacheError)
+        // キャッシュエラーの場合は続行
+      }
+    }
+    
     // Perplexity APIキーを取得（デバッグ情報追加）
     const apiKey = c.env?.PERPLEXITY_API_KEY
     
@@ -1749,7 +1776,7 @@ C) 非公式サイト（ブログ、まとめ、地図、求人、広告、PDF�
         ],
         temperature: 0.1,
         max_tokens: 3000,
-        search_domain_filter: ['lg.jp', 'go.jp', 'pref.kanagawa.jp', 'city.yokohama.lg.jp', 'city.kawasaki.jp', 'city.fujisawa.kanagawa.jp', 'city.miura.kanagawa.jp', 'city.isehara.kanagawa.jp', 'city.minamiashigara.kanagawa.jp'],
+        search_domain_filter: ['lg.jp', 'go.jp', 'pref.kanagawa.jp', 'city.yokohama.lg.jp', 'city.kawasaki.jp', 'city.fujisawa.kanagawa.jp', 'city.miura.kanagawa.jp', 'city.isehara.kanagawa.jp', 'city.minamiashigara.kanagawa.jp', 'city.zama.kanagawa.jp'],
         search_recency_filter: 'year',
         return_citations: true
       })
@@ -1786,8 +1813,35 @@ C) 非公式サイト（ブログ、まとめ、地図、求人、広告、PDF�
       const urlMatch = aiResponse.match(/(?:公式ページURL|URL|url)[:：]\s*(https?:\/\/[^\s\),"]+)/i);
       pageUrl = urlMatch ? urlMatch[1].replace(/[,.)]+$/, '') : null;
     }
+    
+    // URL正規化
+    pageUrl = normalizeUrl(pageUrl)
 
     console.log(`📄 検出されたURL: ${pageUrl}`)
+    
+    // D1キャッシュに保存
+    if (c.env?.DB && mergedDepartments.length > 0) {
+      try {
+        const now = new Date().toISOString()
+        await c.env.DB.prepare(`
+          INSERT INTO search_cache (city, departments, page_url, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?)
+          ON CONFLICT(city) DO UPDATE SET
+            departments = excluded.departments,
+            page_url = excluded.page_url,
+            updated_at = excluded.updated_at
+        `).bind(
+          city,
+          JSON.stringify(mergedDepartments),
+          pageUrl,
+          now,
+          now
+        ).run()
+        console.log(`💾 キャッシュ保存成功: ${city}`)
+      } catch (dbError) {
+        console.warn('⚠️ D1保存エラー:', dbError)
+      }
+    }
     
     // ログを記録
     searchLogs.push({
@@ -1868,5 +1922,29 @@ function getTargetDepartments(inquiryType: string): string[] {
 
 ===========================================
 */
+
+// Helper: URL正規化関数
+function normalizeUrl(url: string | null): string | null {
+  if (!url) return null
+  
+  // Trim whitespace
+  url = url.trim()
+  
+  // "missing" を null として扱う
+  if (url.toLowerCase() === 'missing' || url === '') return null
+  
+  // Remove trailing punctuation that shouldn't be part of URL
+  url = url.replace(/[)）」』】、。，\s]+$/, '')
+  
+  // Ensure https:// prefix
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    url = 'https://' + url
+  }
+  
+  // Validate URL format
+  if (!/^https?:\/\//i.test(url)) return null
+  
+  return url
+}
 
 export default app
