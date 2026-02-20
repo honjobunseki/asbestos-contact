@@ -67,9 +67,9 @@ export async function onRequestPost({ request, env }) {
       `site:${cityDomain} "アスベスト（石綿）" 相談 問い合わせ` :
       `${city} アスベスト 相談 窓口 公式サイト`;
 
-    // search_domain_filterを動的に生成（市のドメインのみ、または汎用ドメイン）
+    // search_domain_filterを動的に生成（市のドメインが判明している場合はそのドメインのみ）
     const searchDomainFilter = cityDomain ? 
-      [cityDomain, "lg.jp", "go.jp"] : 
+      [cityDomain] : 
       ["lg.jp", "go.jp"];
 
     console.log(`🔍 Perplexity検索クエリ: ${searchQuery}`);
@@ -332,9 +332,23 @@ function scoreCitationUrl(url, title, snippet, city) {
 function selectBestUrl(citations, city) {
   if (!citations || citations.length === 0) return null;
 
-  // 簡易的にタイトル・スニペットを含めたスコアリング
-  // （実際のPerplexity APIは citations に詳細情報を含まない場合があるため、URL文字列のみでスコアリング）
-  const scored = citations.map(url => {
+  const cityDomain = getCityDomain(city);
+  
+  // 市のドメインが判明している場合は、そのドメインのURLのみをフィルタリング
+  let filteredCitations = citations;
+  if (cityDomain) {
+    filteredCitations = citations.filter(url => url.includes(cityDomain));
+    console.log(`🔍 ${cityDomain} でフィルタリング: ${filteredCitations.length}/${citations.length} 件`);
+    
+    // フィルタリング後に候補が0件になった場合は元のリストを使用
+    if (filteredCitations.length === 0) {
+      console.warn(`⚠️ ${cityDomain} の候補が0件のため、全候補を使用`);
+      filteredCitations = citations;
+    }
+  }
+
+  // スコアリング
+  const scored = filteredCitations.map(url => {
     const score = scoreCitationUrl(url, '', '', city);
     return { url, score };
   });
