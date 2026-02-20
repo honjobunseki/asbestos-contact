@@ -1598,13 +1598,19 @@ app.post('/api/search', async (c) => {
       return c.json({ error: '市町村名を入力してください' }, 400)
     }
     
-    // Perplexity APIキーを取得
-    const apiKey = c.env.PERPLEXITY_API_KEY
+    // Perplexity APIキーを取得（デバッグ情報追加）
+    const apiKey = c.env?.PERPLEXITY_API_KEY
+    
+    console.log('Environment check:', {
+      hasEnv: !!c.env,
+      hasApiKey: !!apiKey,
+      apiKeyPrefix: apiKey ? apiKey.substring(0, 8) + '...' : 'undefined'
+    })
     
     if (!apiKey) {
       console.error('PERPLEXITY_API_KEY is not set')
       return c.json({ 
-        error: 'APIキーが設定されていません。Cloudflareの環境変数でPERPLEXITY_API_KEYを設定してください。',
+        error: 'APIキーが設定されていません。Cloudflareの環境変数（Settings > Environment variables）でPERPLEXITY_API_KEYを設定し、Production環境を選択してから再デプロイしてください。',
         department: city + ' の環境課・公害対策課',
         phone: '市役所の代表電話にお問い合わせください',
         pageUrl: null
