@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>アスベスト通報サイト</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚠️</text></svg>">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-3xl">
+        <!-- ヘッダー -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-800 mb-2">
+                        <i class="fas fa-exclamation-triangle text-yellow-500 mr-2"></i>
+                        アスベスト通報システム
+                    </h1>
+                    <p class="text-gray-600">お住まいの地域のアスベスト情報を通報できます</p>
+                </div>
+                <a href="/admin" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition text-sm">
+                    <i class="fas fa-cog mr-2"></i>
+                    管理画面
+                </a>
+            </div>
+        </div>
+
+        <!-- メインフォーム -->
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <form id="asbestosForm">
+                <!-- 2カラムレイアウト -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <!-- 左カラム: 簡単検索 -->
+                    <div class="border-r border-gray-200 pr-6">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4">
+                            <i class="fas fa-search text-blue-500 mr-2"></i>
+                            簡単検索
+                        </h3>
+                        <div class="mb-4">
+                            <label class="block text-gray-700 font-semibold mb-2">
+                                市区町村名を入力
+                            </label>
+                            <input 
+                                type="text" 
+                                id="citySearchInput"
+                                placeholder="例: 本庄、渋谷、横浜"
+                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition"
+                                autocomplete="off"
+                            >
+                            <p class="text-sm text-gray-500 mt-1">入力すると候補が表示されます</p>
+                            
+                            <!-- 候補リスト -->
+                            <div id="suggestions" class="mt-2 bg-white border border-gray-300 rounded-lg shadow-lg hidden max-h-60 overflow-y-auto">
+                                <!-- 候補がここに表示される -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 右カラム: プルダウン選択 -->
+                    <div class="pl-6">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4">
+                            <i class="fas fa-list text-green-500 mr-2"></i>
+                            プルダウン選択
+                        </h3>
+                        <div class="mb-4">
+                            <label class="block text-gray-700 font-semibold mb-2">
+                                都道府県を選択
+                            </label>
+                            <select 
+                                id="prefectureSelect"
+                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition"
+                            >
+                                <option value="">選択してください</option>
+                                <!-- 都道府県リストはJavaScriptで追加 -->
+                            </select>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="block text-gray-700 font-semibold mb-2">
+                                市区町村を選択
+                            </label>
+                            <select 
+                                id="citySelect"
+                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition"
+                                disabled
+                            >
+                                <option value="">まず都道府県を選択</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 問い合わせ内容選択 -->
+                <div class="mt-6 pt-6 border-t border-gray-300">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4">
+                        <i class="fas fa-question-circle text-orange-500 mr-2"></i>
+                        問い合わせ内容
+                    </h3>
+                    
+                    <div class="mb-4">
+                        <label class="block text-gray-700 font-semibold mb-2">
+                            問い合わせの目的を選択してください
+                        </label>
+                        <select 
+                            id="inquiryType"
+                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition"
+                        >
+                            <option value="">選択してください</option>
+                            <option value="survey">事前調査・届出の不正（環境部局）</option>
+                            <option value="prevention">飛散防止が不十分（環境部局）</option>
+                            <option value="safety">作業員の安全（労働基準監督署）</option>
+                            <option value="waste">廃棄物処理の不正（廃棄物部局）</option>
+                            <option value="health">健康被害・不安（保健部局／労基署）</option>
+                        </select>
+                        <p class="text-sm text-gray-500 mt-2">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            目的に応じて適切な連絡先が表示されます
+                        </p>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-gray-700 font-semibold mb-2">
+                            問い合わせ内容の詳細（任意）
+                        </label>
+                        <textarea 
+                            id="inquiryDetail"
+                            rows="3"
+                            placeholder="具体的な問い合わせ内容を入力してください（任意）"
+                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition resize-none"
+                        ></textarea>
+                    </div>
+                </div>
+            </form>
+
+            <!-- 検索履歴タブ -->
+            <div id="historyTabs" class="mt-6 hidden">
+                <div class="border-b border-gray-300">
+                    <div id="tabButtons" class="flex overflow-x-auto space-x-2 pb-2">
+                        <!-- タブボタンがここに表示される -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 結果表示エリア -->
+            <div id="resultArea" class="mt-6 hidden">
+                <div id="resultContent">
+                    <!-- 結果がここに表示される -->
+                </div>
+            </div>
+
+            <!-- ローディング表示 -->
+            <div id="loading" class="mt-6 hidden text-center">
+                <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <p class="text-gray-600 mt-2">検索中...</p>
+            </div>
+        </div>
+
+        <!-- フッター -->
+        <div class="text-center mt-6 text-gray-600 text-sm">
+            <p>このサイトは情報提供を目的としています</p>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+    <script src="/static/app.js"></script>
+</body>
+</html>
