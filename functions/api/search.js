@@ -64,7 +64,7 @@ export async function onRequestPost({ request, env }) {
   try {
     const cityDomain = getCityDomain(city);
     const searchQuery = cityDomain ? 
-      `site:${cityDomain} アスベスト 相談 問い合わせ 窓口` :
+      `site:${cityDomain} "アスベスト（石綿）" 相談 問い合わせ` :
       `${city} アスベスト 相談 窓口 公式サイト`;
 
     console.log(`🔍 Perplexity検索クエリ: ${searchQuery}`);
@@ -79,9 +79,15 @@ export async function onRequestPost({ request, env }) {
 
 【重要な検索ルール】
 - Citations中から「アスベスト」「石綿」「相談」「窓口」等の用語を含むURLを優先的に選択
-- 「野焼き」「屋外焼却」「ごみ」等のアスベストと無関係な用語を含むURLは除外
+- 「野焼き」「屋外焼却」「ごみ」「光化学スモッグ」「PM2.5」等のアスベストと無関係な用語を含むURLは除外
 - Citations が複数ある場合、タイトル・スニペットから最も適切なURLを選択
 - 選択されたURLからのみ情報を抽出（URLが404やリダイレクトの場合はmissingとして記録）
+
+【座間市のようなカテゴリ一覧で誤爆する問題への対策（必須）】
+- 候補URLが同一カテゴリ（例：/kurashi/kankyo/taiki/）内に複数ある場合、タイトル/本文/リンク文字に「アスベスト」または「石綿」を含むページを最優先でrecommended.urlにする
+- 「光化学スモッグ」「PM2.5」「野焼き/屋外焼却」など別トピックのページはrecommendedから除外する
+- 一覧ページ（複数リンクが並ぶページ）しか得られない場合は、そのページ内のリンク一覧からアンカーテキストに「アスベスト」または「石綿」を含むURLを抽出してrecommended.urlとする
+- recommended.evidence_snippetはrecommended.urlの本文から作る（一覧ページの抜粋は禁止）
 
 【抽出項目】
 - department: 担当部署名（例: "環境部 環境保全課"）
@@ -294,23 +300,29 @@ function getCityDomain(cityName) {
   return cityDomainMap[cleanedCity] || null;
 }
 
-// ヘルパー関数: URLスコアリング
+// ヘルパー関数: URLスコアリング（強化版）
 function scoreCitationUrl(url, title, snippet, city) {
   let score = 0;
   const text = `${title} ${snippet}`.toLowerCase();
+  const urlLower = url.toLowerCase();
 
-  // アスベスト関連キーワード
+  // 最優先ワード（アスベスト関連）
   if (text.includes('アスベスト') || text.includes('石綿')) score += 100;
-  if (text.includes('相談')) score += 20;
-  if (text.includes('問い合わせ')) score += 20;
-  if (text.includes('窓口')) score += 15;
+  
+  // 目的ワード（相談窓口っぽさ）
+  if (text.includes('相談')) score += 30;
+  if (text.includes('問い合わせ')) score += 25;
+  if (text.includes('窓口')) score += 20;
 
-  // 除外ワード（野焼き、ごみ等）
-  if (text.includes('野焼き') || text.includes('屋外焼却')) score -= 80;
-  if (!text.includes('アスベスト') && !text.includes('石綿')) {
-    if (text.includes('ごみ') || text.includes('pm2.5')) score -= 30;
-  }
+  // 誤爆ワード（別トピック） - 大幅減点
+  if (text.includes('光化学スモッグ')) score -= 100;
+  if (text.includes('野焼き') || text.includes('屋外焼却')) score -= 100;
+  if (text.includes('pm2.5') || text.includes('微小粒子')) score -= 80;
+  if (text.includes('ごみ')) score -= 30;
 
+  // URLから直接判定
+  if (urlLower.includes('asbestos') || urlLower.includes('asbest') || urlLower.includes('sekimen')) score += 50;
+  
   // URLドメインマッチ
   const cityDomain = getCityDomain(city);
   if (cityDomain && url.includes(cityDomain)) score += 10;
