@@ -67,7 +67,13 @@ export async function onRequestPost({ request, env }) {
       `site:${cityDomain} "アスベスト（石綿）" 相談 問い合わせ` :
       `${city} アスベスト 相談 窓口 公式サイト`;
 
+    // search_domain_filterを動的に生成（市のドメインのみ、または汎用ドメイン）
+    const searchDomainFilter = cityDomain ? 
+      [cityDomain, "lg.jp", "go.jp"] : 
+      ["lg.jp", "go.jp"];
+
     console.log(`🔍 Perplexity検索クエリ: ${searchQuery}`);
+    console.log(`🔍 Domain Filter: ${searchDomainFilter.join(', ')}`);
 
     const prompt = `
 あなたは自治体の公式サイトから正確な情報を抽出する専門家です。以下のルールに従って、${city}のアスベスト（石綿）相談窓口の情報を抽出してください。
@@ -157,18 +163,7 @@ export async function onRequestPost({ request, env }) {
         ],
         temperature: 0.1,
         max_tokens: 3000,
-        search_domain_filter: [
-          "lg.jp",
-          "go.jp",
-          "pref.kanagawa.jp",
-          "city.yokohama.lg.jp",
-          "city.kawasaki.jp",
-          "city.fujisawa.kanagawa.jp",
-          "city.miura.kanagawa.jp",
-          "city.isehara.kanagawa.jp",
-          "city.minamiashigara.kanagawa.jp",
-          "city.zama.kanagawa.jp"
-        ],
+        search_domain_filter: searchDomainFilter,
         search_recency_filter: "year",
         return_citations: true
       })
