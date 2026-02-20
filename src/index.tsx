@@ -1530,52 +1530,8 @@ function mergeWardDepartments(departments: Array<{
   email: string | null
   formUrl: string | null
 }>) {
-  const wardEntries: typeof departments = []
-  const otherEntries: typeof departments = []
-  
-  for (const dept of departments) {
-    // 区役所かどうかを判定
-    const isWardOffice = dept.category && (
-      dept.category.includes('区役所') || 
-      dept.category.includes('各区役所') ||
-      dept.category.includes('解体工事')
-    )
-    const isWardName = dept.name && dept.name.match(/[^\s]+区/)
-    
-    if (isWardOffice || isWardName) {
-      wardEntries.push(dept)
-    } else {
-      otherEntries.push(dept)
-    }
-  }
-  
-  // 区役所をマージ
-  if (wardEntries.length > 0) {
-    // カテゴリーを統一
-    const category = wardEntries[0].category || '区役所窓口'
-    
-    // 各区の電話番号をまとめる
-    const phones = wardEntries
-      .map(d => {
-        const wardName = d.name.match(/([^\s]+区)/)?.[1] || d.name
-        return d.phone ? `${wardName} ${d.phone}` : null
-      })
-      .filter(p => p)
-      .join('\n')
-    
-    // マージされた区役所エントリー
-    const mergedWard = {
-      category,
-      name: '各区役所',
-      phone: phones || null,
-      email: null,
-      formUrl: null
-    }
-    
-    return [mergedWard, ...otherEntries]
-  }
-  
-  return otherEntries
+  // マージせずそのまま返す（各区を個別表示）
+  return departments
 }
 
 // API: 検索ログを取得
