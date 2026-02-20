@@ -1719,8 +1719,9 @@ C) 非公式サイト（ブログ、まとめ、地図、求人、広告、PDF�
           }
         ],
         temperature: 0.1,
-        max_tokens: 2000,
-        search_domain_filter: ['go.jp', 'lg.jp'],
+        max_tokens: 3000,
+        search_domain_filter: ['lg.jp', 'go.jp', 'pref.kanagawa.jp', 'city.yokohama.lg.jp', 'city.kawasaki.jp', 'city.fujisawa.kanagawa.jp', 'city.miura.kanagawa.jp'],
+        search_recency_filter: 'year',
         return_citations: true
       })
     })
