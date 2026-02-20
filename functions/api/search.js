@@ -204,8 +204,17 @@ export async function onRequestPost({ request, env }) {
     console.log(`📊 抽出された部署数: ${departments.length}`);
 
     // URLスコアリングで最適なURLを選択
-    const pageUrl = selectBestUrl(citations, city);
+    let pageUrl = selectBestUrl(citations, city);
     console.log('✅ スコアリング選出URL:', pageUrl);
+
+    // 一覧ページの場合、HTMLを取得してアンカーテキストから正しいURLを抽出
+    if (pageUrl) {
+      const refinedUrl = await refineUrlFromListPage(pageUrl, city);
+      if (refinedUrl && refinedUrl !== pageUrl) {
+        console.log(`🔄 一覧ページから抽出: ${pageUrl} → ${refinedUrl}`);
+        pageUrl = refinedUrl;
+      }
+    }
 
     // URL正規化
     const normalizedUrl = normalizeUrl(pageUrl);
@@ -386,5 +395,86 @@ function normalizeUrl(url) {
     return url;
   } catch {
     return null;
+  }
+}
+
+// ヘルパー関数: 一覧ページからアンカーテキストで正しいURLを抽出
+async function refineUrlFromListPage(url, city) {
+  try {
+    // 一覧ページの可能性がある場合のみ処理（例: /taiki/, /kankyo/ など）
+    const isListPage = /\/(taiki|kankyo|kankyou|hozen|soudan|madoguchi)\/?$/i.test(url);
+    if (!isListPage) {
+      return url; // 個別記事ページの場合はそのまま返す
+    }
+
+    console.log(`🔍 一覧ページ解析開始: ${url}`);
+
+    // HTMLを取得
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; AsbestosInfoBot/1.0)'
+      }
+    });
+
+    if (!response.ok) {
+      console.warn(`⚠️ ページ取得失敗 (${response.status}): ${url}`);
+      return url;
+    }
+
+    const html = await response.text();
+    console.log(`✅ HTML取得成功 (${html.length} bytes)`);
+
+    // 正規表現で <a href="...">テキスト</a> を抽出
+    const linkPattern = /<a\s+[^>]*href=["']([^"']+)["'][^>]*>(.*?)<\/a>/gis;
+    const links = [];
+    let match;
+
+    while ((match = linkPattern.exec(html)) !== null) {
+      const href = match[1];
+      const text = match[2]
+        .replace(/<[^>]+>/g, '') // HTMLタグ除去
+        .replace(/\s+/g, ' ')    // 空白正規化
+        .trim();
+
+      // 相対URLを絶対URLに変換
+      let absoluteUrl;
+      try {
+        absoluteUrl = new URL(href, url).toString();
+      } catch {
+        continue;
+      }
+
+      links.push({ text, url: absoluteUrl });
+    }
+
+    console.log(`📊 抽出されたリンク数: ${links.length}`);
+
+    // 「アスベスト」または「石綿」を含むリンクを優先的に探す
+    const asbestosLink = links.find(link => 
+      /アスベスト|石綿/.test(link.text)
+    );
+
+    if (asbestosLink) {
+      console.log(`✅ アスベストリンク発見: "${asbestosLink.text}" → ${asbestosLink.url}`);
+      return asbestosLink.url;
+    }
+
+    // 除外ワードを含むリンクを避けて、最初のリンクを返す
+    const safeLink = links.find(link => 
+      !/光化学スモッグ|pm2\.?5|野焼き|屋外焼却|ごみ/.test(link.text) &&
+      link.url.includes(getCityDomain(city) || '')
+    );
+
+    if (safeLink) {
+      console.log(`✅ 安全なリンク発見: "${safeLink.text}" → ${safeLink.url}`);
+      return safeLink.url;
+    }
+
+    console.warn('⚠️ 適切なリンクが見つかりませんでした');
+    return url; // 見つからない場合は元のURLを返す
+
+  } catch (error) {
+    console.error('❌ 一覧ページ解析エラー:', error);
+    return url; // エラー時は元のURLを返す
   }
 }
