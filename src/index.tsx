@@ -1720,7 +1720,7 @@ C) 非公式サイト（ブログ、まとめ、地図、求人、広告、PDF�
         ],
         temperature: 0.1,
         max_tokens: 3000,
-        search_domain_filter: ['lg.jp', 'go.jp', 'pref.kanagawa.jp', 'city.yokohama.lg.jp', 'city.kawasaki.jp', 'city.fujisawa.kanagawa.jp', 'city.miura.kanagawa.jp'],
+        search_domain_filter: ['lg.jp', 'go.jp', 'pref.kanagawa.jp', 'city.yokohama.lg.jp', 'city.kawasaki.jp', 'city.fujisawa.kanagawa.jp', 'city.miura.kanagawa.jp', 'city.isehara.kanagawa.jp', 'city.minamiashigara.kanagawa.jp'],
         search_recency_filter: 'year',
         return_citations: true
       })
@@ -1735,6 +1735,13 @@ C) 非公式サイト（ブログ、まとめ、地図、求人、広告、PDF�
 
     console.log(`🔍 Perplexity API検索: ${city}`)
     console.log(`📝 AI応答:\n${aiResponse}`)
+    
+    // デバッグ：Perplexityの完全なレスポンスをログ
+    console.log(`🔧 Perplexity完全レスポンス:`, JSON.stringify(data, null, 2))
+    console.log(`📊 Citations数: ${data.citations?.length || 0}`)
+    if (data.citations && data.citations.length > 0) {
+      console.log(`📎 Citations:`, data.citations.map((c: any) => c.url || c).join(', '))
+    }
 
     // JSON応答を解析
     const { departments: parsedDepartments, pageUrl: extractedUrl } = parseJSONResponse(aiResponse, city)
