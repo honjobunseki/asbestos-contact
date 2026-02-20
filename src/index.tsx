@@ -1450,7 +1450,68 @@ const searchLogs: Array<{
   error?: string
 }> = []
 
-// AIの応答をパースして部署情報を抽出
+// JSON形式のAI応答をパース
+function parseJSONResponse(aiResponse: string, city: string) {
+  try {
+    // コードブロックを除去
+    let jsonStr = aiResponse.trim()
+    if (jsonStr.startsWith('```json')) {
+      jsonStr = jsonStr.replace(/^```json\n?/, '').replace(/\n?```$/, '')
+    } else if (jsonStr.startsWith('```')) {
+      jsonStr = jsonStr.replace(/^```\n?/, '').replace(/\n?```$/, '')
+    }
+    
+    const data = JSON.parse(jsonStr)
+    const departments: Array<{
+      category: string
+      name: string
+      phone: string | null
+      email: string | null
+      formUrl: string | null
+    }> = []
+    
+    // recommendedを抽出
+    if (data.recommended && data.recommended.department) {
+      departments.push({
+        category: data.recommended.category || '相談窓口',
+        name: data.recommended.department,
+        phone: data.recommended.phone || null,
+        email: data.recommended.email || null,
+        formUrl: data.recommended.inquiry_form_url || null
+      })
+    }
+    
+    // candidatesも抽出（最大5件）
+    if (data.candidates && Array.isArray(data.candidates)) {
+      for (const candidate of data.candidates.slice(0, 5)) {
+        if (candidate.department) {
+          departments.push({
+            category: candidate.category || '相談窓口',
+            name: candidate.department,
+            phone: candidate.phone || null,
+            email: candidate.email || null,
+            formUrl: candidate.inquiry_form_url || null
+          })
+        }
+      }
+    }
+    
+    // pageUrlを抽出
+    const pageUrl = data.recommended?.url || null
+    
+    return { departments, pageUrl }
+  } catch (error) {
+    console.error('JSON parse error:', error)
+    console.log('Response:', aiResponse)
+    // フォールバック：従来の方法で解析
+    return { 
+      departments: parseAIResponse(aiResponse, city), 
+      pageUrl: null 
+    }
+  }
+}
+
+// AIの応答をパースして部署情報を抽出（従来形式のフォールバック）
 function parseAIResponse(aiResponse: string, city: string) {
   const departments: Array<{
     category: string
@@ -1573,31 +1634,71 @@ app.post('/api/search', async (c) => {
       }, 404)
     }
 
-    // Perplexity APIで検索（詳細情報を取得）
-    const prompt = `${city}の公式ホームページから、アスベスト（石綿）に関する相談・通報窓口の情報を詳しく教えてください。
+    // Perplexity APIで検索（構造化JSON形式で取得）
+    const prompt = `あなたは「日本の自治体のアスベスト（石綿）通報・相談窓口」情報を、公式ソースから抽出し、機械処理しやすいJSONとして返すデータ抽出エージェントです。
+${city}について、担当窓口の電話番号・メールアドレス等を調査し、必ずJSONのみで出力してください（説明文は禁止）。
 
-【取得してほしい情報】
-1. 公式ページのURL（.lg.jpドメイン）
-2. 担当部署名
-3. 電話番号
-4. メールアドレス（あれば）
-5. 問い合わせフォームURL（あれば）
+【入力】
+- municipality: ${city}
+- intent_type: 相談
 
-【重要な指示】
-- すべての窓口情報を網羅的に記載してください
-- 複数の部署がある場合は、すべて記載してください
-- 区役所がある場合は、各区の情報も記載してください
-- 電話番号は必ず記載してください
+【最重要ルール（必ず守る）】
+1) 推測・想像・補完は禁止。ページに明記がない項目は missing に入れる。
+2) 公式ソース優先。原則として自治体公式ドメイン（lg.jp / city.*.jp / town.*.jp / village.*.jp / pref.*.jp 等）から抽出する。
+3) 公式が見つからない場合のみ、都道府県の案内ページまたは公的機関（環境省等）を「フォールバック候補」として採用し、flags に記録する。
+4) 抽出した値は必ず「根拠URL(url)」と「根拠抜粋(evidence_snippet)」をセットで返す。
+5) 候補が複数ある場合は candidates に複数入れ、recommended を1つ選び、reason に選定理由を書く。
+6) 代表番号しかない／メールがフォームのみ等、情報の確度が落ちる場合は flags に理由を入れる。
 
-【回答フォーマット】
-カテゴリー: ○○○
-部署名: ○○課
-電話番号: 000-0000-0000
-メールアドレス: xxx@example.jp
-問い合わせフォーム: https://...
-公式ページURL: https://...
+【検索・選定の手順（必須）】
+A) まず ${city} の公式サイト内で以下の語を使って探す（サイト内/公式ドメイン優先）
+   - "石綿" "アスベスト" "相談" "通報" "窓口" "問い合わせ"
+B) 公式ページが複数ある場合、以下の優先順位で候補化する
+   1. 「石綿（アスベスト）相談窓口」と明示されたページ
+   2. 「建築物の解体等に伴う石綿」関連の担当課ページ
+   3. 「環境」「生活環境」「廃棄物」「公害」「建築指導」等の担当課ページ
+   4. どうしても無い場合：都道府県の石綿相談窓口ページ
+C) 非公式サイト（ブログ、まとめ、地図、求人、広告、PDF転載、民間サイト等）は recommended に採用しない
 
-（複数ある場合は上記を繰り返し）`;
+【抽出する項目】
+- department: 担当課・係の名称
+- phone: 電話番号（直通があれば直通。無ければ代表。内線表記があれば extension に）
+- email: メールアドレス（無い場合は空。フォームのみなら inquiry_form_url に）
+- inquiry_form_url: 問い合わせフォームURL
+- hours: 受付時間
+- address: 所在地
+- notes: 条件・注意事項
+- category: "相談" / "通報" / "届出" / "その他"
+
+【正規化ルール（必須）】
+- 電話番号：半角＋ハイフン形式に統一（例：024-123-4567）
+- 全角英数・全角ハイフン・全角スペースは半角へ
+- "TEL:" "電話：" "代表：" 等のラベルは除去して番号のみ返す
+- メール："（アット）" "＠" は "@" に統一
+
+【出力形式】※JSONのみ（前後に説明文・箇条書き・コードブロック禁止）
+{
+  "municipality": "${city}",
+  "intent_type": "相談",
+  "recommended": {
+    "department": "",
+    "category": "",
+    "phone": "",
+    "extension": "",
+    "email": "",
+    "inquiry_form_url": "",
+    "hours": "",
+    "address": "",
+    "url": "",
+    "evidence_snippet": "",
+    "notes": ""
+  },
+  "candidates": [],
+  "missing": [],
+  "flags": [],
+  "reason": "",
+  "last_checked": "${new Date().toISOString().split('T')[0]}"
+}`;
 
     const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
@@ -1610,7 +1711,7 @@ app.post('/api/search', async (c) => {
         messages: [
           {
             role: 'system',
-            content: 'あなたは日本の行政情報に詳しい専門アシスタントです。指定された市町村の公式サイトから、アスベスト関連の相談窓口ページのURLを正確に見つけて回答してください。URLのみを簡潔に回答してください。'
+            content: 'あなたは日本の自治体公式サイトからアスベスト窓口情報を抽出する専門エージェントです。必ず公式ドメイン（.lg.jp等）から情報を取得し、構造化されたJSONのみを出力してください。説明文・補足・コードブロックは一切禁止です。'
           },
           {
             role: 'user',
@@ -1634,17 +1735,20 @@ app.post('/api/search', async (c) => {
     console.log(`🔍 Perplexity API検索: ${city}`)
     console.log(`📝 AI応答:\n${aiResponse}`)
 
-    // AIの応答をパースして部署情報を抽出
-    const departments = parseAIResponse(aiResponse, city)
+    // JSON応答を解析
+    const { departments: parsedDepartments, pageUrl: extractedUrl } = parseJSONResponse(aiResponse, city)
     
-    // 区役所の情報をマージ（同じカテゴリーの区をまとめる）
-    const mergedDepartments = mergeWardDepartments(departments)
+    // 区役所の情報をマージせず個別表示
+    const mergedDepartments = mergeWardDepartments(parsedDepartments)
     
     console.log(`📊 抽出された部署数: ${mergedDepartments.length}`)
 
-    // URLを抽出（公式ページURL）
-    const urlMatch = aiResponse.match(/(?:公式ページURL|URL)[:：]\s*(https?:\/\/[^\s\)]+)/);
-    const pageUrl = urlMatch ? urlMatch[1].replace(/[,.)]+$/, '') : null;
+    // URLを抽出（JSON内のURLを優先、無ければ従来の方法）
+    let pageUrl = extractedUrl
+    if (!pageUrl) {
+      const urlMatch = aiResponse.match(/(?:公式ページURL|URL|url)[:：]\s*(https?:\/\/[^\s\),"]+)/i);
+      pageUrl = urlMatch ? urlMatch[1].replace(/[,.)]+$/, '') : null;
+    }
 
     console.log(`📄 検出されたURL: ${pageUrl}`)
     
