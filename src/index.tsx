@@ -1685,7 +1685,8 @@ ${city}について、担当窓口の電話番号・メールアドレス等を�
 6) 代表番号しかない／メールがフォームのみ等、情報の確度が落ちる場合は flags に理由を入れる。
 
 【検索・選定の手順（必須）】
-A) まず ${city} の公式サイト内で以下の語を使って探す（サイト内/公式ドメイン優先）
+A) まず ${city} の公式サイト内で以下の語を使って探す
+   - 検索クエリ例: site:${getCityDomain(city)} "アスベスト（石綿）" 相談 問い合わせ
    - **窓口ページを優先**: "問い合わせ" "連絡先" "窓口" "担当課" "相談窓口"
    - 次に: "石綿" "アスベスト" "相談" "通報"
 B) 公式ページが複数ある場合、以下の優先順位で候補化する
@@ -1694,6 +1695,13 @@ B) 公式ページが複数ある場合、以下の優先順位で候補化す�
    3. 「環境」「生活環境」「廃棄物」「公害」「建築指導」等の担当課ページ
    4. どうしても無い場合：都道府県の石綿相談窓口ページ
 C) 非公式サイト（ブログ、まとめ、地図、求人、広告、PDF転載、民間サイト等）は recommended に採用しない
+
+【URL選定ルール（最重要）】
+- 候補URLが複数ある場合、タイトル/本文に「アスベスト」または「石綿」を含むページを最優先で recommended.url にする
+- 「野焼き」「屋外焼却」「PM2.5」などアスベストと無関係な環境トピックのページは除外する
+- 一覧ページ（カテゴリページ）しか見つからない場合は、そのページ内のリンクから
+  アンカーテキストに「アスベスト」または「石綿」を含むURLを抽出して recommended.url に採用する
+- recommended.url の evidence_snippet はそのURLの本文から作る（一覧ページの抜粋は禁止）
 
 【抽出する項目】
 - department: 担当課・係の名称
@@ -1807,17 +1815,24 @@ C) 非公式サイト（ブログ、まとめ、地図、求人、広告、PDF�
     
     console.log(`📊 抽出された部署数: ${mergedDepartments.length}`)
 
-    // URLを抽出（JSON内のURLを優先、無ければ従来の方法）
-    let pageUrl = extractedUrl
-    if (!pageUrl) {
-      const urlMatch = aiResponse.match(/(?:公式ページURL|URL|url)[:：]\s*(https?:\/\/[^\s\),"]+)/i);
-      pageUrl = urlMatch ? urlMatch[1].replace(/[,.)]+$/, '') : null;
+    // CitationsからベストなURLを選択（スコアリング）
+    let pageUrl: string | null = null
+    
+    if (data.citations && data.citations.length > 0) {
+      pageUrl = selectBestUrl(data.citations, city)
+      console.log(`✅ スコアリング選出URL: ${pageUrl}`)
     }
     
-    // URL正規化
-    pageUrl = normalizeUrl(pageUrl)
-
-    console.log(`📄 検出されたURL: ${pageUrl}`)
+    // Citationsがない場合、JSON内のURLを使用
+    if (!pageUrl) {
+      pageUrl = extractedUrl
+      if (!pageUrl) {
+        const urlMatch = aiResponse.match(/(?:公式ページURL|URL|url)[:：]\s*(https?:\/\/[^\s\),"]+)/i);
+        pageUrl = urlMatch ? urlMatch[1].replace(/[,.)]+$/, '') : null;
+      }
+      pageUrl = normalizeUrl(pageUrl)
+      console.log(`📄 フォールバックURL: ${pageUrl}`)
+    }
     
     // D1キャッシュに保存
     if (c.env?.DB && mergedDepartments.length > 0) {
@@ -1945,6 +1960,120 @@ function normalizeUrl(url: string | null): string | null {
   if (!/^https?:\/\//i.test(url)) return null
   
   return url
+}
+
+// Helper: 市町村名からドメインを取得
+function getCityDomain(city: string): string {
+  // 都道府県名を除去
+  const cityName = city.replace(/^[^県]+県/, '').replace(/^[^都]+都/, '').replace(/^[^府]+府/, '').replace(/^[^道]+道/, '')
+  
+  // ドメインマッピング
+  const domainMap: Record<string, string> = {
+    '横浜市': 'city.yokohama.lg.jp',
+    '川崎市': 'city.kawasaki.jp',
+    '相模原市': 'city.sagamihara.kanagawa.jp',
+    '藤沢市': 'city.fujisawa.kanagawa.jp',
+    '横須賀市': 'city.yokosuka.kanagawa.jp',
+    '平塚市': 'city.hiratsuka.kanagawa.jp',
+    '茅ヶ崎市': 'city.chigasaki.kanagawa.jp',
+    '大和市': 'city.yamato.lg.jp',
+    '厚木市': 'city.atsugi.kanagawa.jp',
+    '小田原市': 'city.odawara.kanagawa.jp',
+    '座間市': 'city.zama.kanagawa.jp',
+    '海老名市': 'city.ebina.kanagawa.jp',
+    '秦野市': 'city.hadano.kanagawa.jp',
+    '伊勢原市': 'city.isehara.kanagawa.jp',
+    '南足柄市': 'city.minamiashigara.kanagawa.jp',
+    '三浦市': 'city.miura.kanagawa.jp',
+    '鎌倉市': 'city.kamakura.kanagawa.jp',
+    '逗子市': 'city.zushi.kanagawa.jp',
+    '綾瀬市': 'city.ayase.kanagawa.jp',
+    '本庄市': 'city.honjo.lg.jp',
+    '川越市': 'city.kawagoe.saitama.jp',
+    '柏市': 'city.kashiwa.lg.jp',
+    'さいたま市': 'city.saitama.jp',
+    '岐阜市': 'city.gifu.lg.jp',
+    '豊田市': 'city.toyota.aichi.jp',
+    'つくば市': 'city.tsukuba.lg.jp'
+  }
+  
+  return domainMap[cityName] || 'lg.jp'
+}
+
+// Helper: URLをスコアリングして最適なものを選択
+function scoreCitationUrl(citation: any, city: string): number {
+  const url = citation.url || citation
+  const title = citation.title || ''
+  const snippet = citation.snippet || citation.text || ''
+  
+  const text = `${title} ${snippet}`.toLowerCase()
+  let score = 0
+  
+  // 必須級ワード（アスベスト関連）
+  if (text.includes('アスベスト') || text.includes('石綿')) {
+    score += 100
+  } else {
+    // アスベスト関連でなければ大幅減点
+    score -= 50
+  }
+  
+  // 目的ワード
+  if (text.includes('相談')) score += 20
+  if (text.includes('問い合わせ')) score += 20
+  if (text.includes('窓口')) score += 15
+  if (text.includes('担当')) score += 10
+  if (text.includes('連絡先')) score += 10
+  
+  // 誤爆除外ワード（大幅減点）
+  if (text.includes('野焼き')) score -= 80
+  if (text.includes('屋外焼却')) score -= 80
+  if (text.includes('ごみ') && !text.includes('アスベスト')) score -= 30
+  if (text.includes('pm2.5') && !text.includes('アスベスト')) score -= 30
+  
+  // URL構造での加点
+  const cityDomain = getCityDomain(city)
+  if (url.includes(cityDomain)) score += 10
+  
+  // カテゴリヒント
+  if (url.includes('/kurashi/') || url.includes('/seikatsu/')) score += 5
+  if (url.includes('/kankyo/')) score += 5
+  
+  // 一覧ページは減点（詳細ページを優先）
+  if (title.includes('一覧') || title.includes('トップ') || title.includes('メニュー')) {
+    score -= 20
+  }
+  
+  console.log(`📊 URL Score: ${score} | ${url} | ${title}`)
+  
+  return score
+}
+
+// Helper: Citationsから最適なURLを選択
+function selectBestUrl(citations: any[], city: string): string | null {
+  if (!citations || citations.length === 0) return null
+  
+  console.log(`🔍 Citations候補数: ${citations.length}`)
+  
+  // 各URLをスコアリング
+  const scored = citations.map(citation => ({
+    url: normalizeUrl(citation.url || citation),
+    title: citation.title || '',
+    score: scoreCitationUrl(citation, city),
+    citation
+  }))
+  
+  // スコアでソート（降順）
+  scored.sort((a, b) => b.score - a.score)
+  
+  // 上位3件をログ出力
+  console.log('📊 上位候補:')
+  scored.slice(0, 3).forEach((item, i) => {
+    console.log(`  ${i + 1}. [${item.score}点] ${item.title}`)
+    console.log(`     ${item.url}`)
+  })
+  
+  // 最高スコアのURLを返す
+  return scored[0]?.url || null
 }
 
 export default app
