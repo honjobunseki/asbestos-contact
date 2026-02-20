@@ -69,6 +69,9 @@ export async function onRequestPost({ request, env }) {
       }
     }
 
+    // Get city domain for site: filter
+    const cityDomain = getCityDomain(city);
+    
     // Perplexity API search
     const prompt = `以下のJSON形式で、${city}の公式サイトのアスベスト（石綿）${inquiryType || '相談'}窓口情報を抽出してください。
 
@@ -79,11 +82,20 @@ export async function onRequestPost({ request, env }) {
 4. 電話番号は半角ハイフン形式（例: 045-123-4567）
 5. メールアドレスは @ 形式に統一
 6. ラベル（「TEL:」「電話:」など）は除去
+7. **URLは取得した完全なURL文字列をそのまま返す（前後空白禁止、末尾記号除去禁止）**
+
+【リンク検証（必須）】
+- recommended.url は「実際にアクセス可能なURL」に限定する
+- 404/410/500やアクセス不可の場合、そのURLは recommended に採用しない
+- 候補URLは、可能なら別URL（同一サイト内の別ページ）を探し直す
+- URLは省略・整形・加工せず、取得した完全なURL文字列をそのまま返す
+- evidence_snippet は recommended.url のページ本文からのみ作る（別ページ混入禁止）
 
 【検索手順】
-1. ${city}の公式サイト内で「石綿 相談」「アスベスト 窓口」を検索
-2. 環境課・建築指導課のページを優先
-3. 公式ページが見つからない場合のみ都道府県の窓口を探す（その場合は flags に "fallback_to_prefecture" を追加）
+1. ${city}の公式サイト内（site:${cityDomain}）で「石綿 相談」「アスベスト 窓口」を検索
+2. 環境課・生活安全課・建築指導課のページを優先
+3. 担当部署名・電話番号・メールアドレスが明記されているページを選ぶ
+4. 公式ページが見つからない場合のみ都道府県の窓口を探す（その場合は flags に "fallback_to_prefecture" を追加）
 
 【出力JSON形式】
 {
@@ -139,7 +151,8 @@ export async function onRequestPost({ request, env }) {
           'city.fujisawa.kanagawa.jp',
           'city.miura.kanagawa.jp',
           'city.isehara.kanagawa.jp',
-          'city.minamiashigara.kanagawa.jp'
+          'city.minamiashigara.kanagawa.jp',
+          'city.zama.kanagawa.jp'
         ],
         search_recency_filter: 'year'
       })
@@ -202,7 +215,7 @@ export async function onRequestPost({ request, env }) {
       });
     }
 
-    const pageUrl = jsonData.recommended?.url || extractUrlFromText(aiResponse);
+    const pageUrl = normalizeUrl(jsonData.recommended?.url) || extractUrlFromText(aiResponse);
 
     console.log(`✅ 抽出完了: ${departments.length}件の部署`);
 
@@ -333,9 +346,65 @@ function extractUrlFromText(text) {
   for (const pattern of urlPatterns) {
     const match = text.match(pattern);
     if (match) {
-      return match[1].replace(/[)）」』】、。，]+$/, '');
+      return normalizeUrl(match[1]);
     }
   }
 
   return null;
+}
+
+// Helper: Normalize URL (trim, remove trailing punctuation)
+function normalizeUrl(url) {
+  if (!url) return null;
+  
+  // Trim whitespace
+  url = url.trim();
+  
+  // Remove trailing punctuation that shouldn't be part of URL
+  url = url.replace(/[)）」』】、。，\s]+$/, '');
+  
+  // Ensure https:// prefix
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    url = 'https://' + url;
+  }
+  
+  return url;
+}
+
+// Helper: Get city domain for site: filter
+function getCityDomain(city) {
+  // Remove prefecture prefix
+  const cityName = city.replace(/^[^県]+県/, '').replace(/^[^都]+都/, '').replace(/^[^府]+府/, '').replace(/^[^道]+道/, '');
+  
+  // Common city domain mappings
+  const domainMap = {
+    '横浜市': 'city.yokohama.lg.jp',
+    '川崎市': 'city.kawasaki.jp',
+    '相模原市': 'city.sagamihara.kanagawa.jp',
+    '藤沢市': 'city.fujisawa.kanagawa.jp',
+    '横須賀市': 'city.yokosuka.kanagawa.jp',
+    '平塚市': 'city.hiratsuka.kanagawa.jp',
+    '茅ヶ崎市': 'city.chigasaki.kanagawa.jp',
+    '大和市': 'city.yamato.lg.jp',
+    '厚木市': 'city.atsugi.kanagawa.jp',
+    '小田原市': 'city.odawara.kanagawa.jp',
+    '座間市': 'city.zama.kanagawa.jp',
+    '海老名市': 'city.ebina.kanagawa.jp',
+    '秦野市': 'city.hadano.kanagawa.jp',
+    '伊勢原市': 'city.isehara.kanagawa.jp',
+    '南足柄市': 'city.minamiashigara.kanagawa.jp',
+    '三浦市': 'city.miura.kanagawa.jp',
+    '鎌倉市': 'city.kamakura.kanagawa.jp',
+    '逗子市': 'city.zushi.kanagawa.jp',
+    '綾瀬市': 'city.ayase.kanagawa.jp',
+    '本庄市': 'city.honjo.lg.jp',
+    '川越市': 'city.kawagoe.saitama.jp',
+    '柏市': 'city.kashiwa.lg.jp',
+    'さいたま市': 'city.saitama.jp',
+    '岐阜市': 'city.gifu.lg.jp',
+    '豊田市': 'city.toyota.aichi.jp',
+    'つくば市': 'city.tsukuba.lg.jp'
+  };
+  
+  return domainMap[cityName] || 'lg.jp';
 }

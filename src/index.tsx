@@ -791,6 +791,13 @@ app.get('/', (c) => {
             function displayResult(data, city) {
                 const resultContent = document.getElementById('resultContent');
                 
+                // URL検証とデバッグログ
+                if (data.pageUrl) {
+                    console.log('📎 公式ページURL:', data.pageUrl);
+                    console.log('📎 URL type:', typeof data.pageUrl);
+                    console.log('📎 URL starts with http:', data.pageUrl.startsWith('http'));
+                }
+                
                 // 都道府県のみの検索かどうかを判定
                 const isPrefectureOnly = city.match(/^.+?(都|道|府|県)$/);
                 
