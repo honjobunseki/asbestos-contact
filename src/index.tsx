@@ -805,9 +805,7 @@ app.get('/', (c) => {
                                 <i class="fas fa-exclamation-triangle mr-2"></i>
                                 情報が見つかりませんでした
                             </h2>
-                            <p class="text-gray-700 mb-2">\${data.error}</p>
-                            \${data.errorDetail ? \`<p class="text-sm text-gray-600 mb-4">\${data.errorDetail}</p>\` : ''}
-                            \${data.cached ? \`<p class="text-xs text-blue-600 mb-4">💾 キャッシュデータ（\${data.cacheAge}分前）</p>\` : ''}
+                            <p class="text-gray-700 mb-4">\${data.error}</p>
                             <a href="https://www.google.com/search?q=\${encodeURIComponent(city + ' アスベスト 相談')}" 
                                target="_blank" 
                                class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition">
@@ -871,7 +869,6 @@ app.get('/', (c) => {
                                     <p class="text-gray-700 mb-6">
                                         以下のボタンから公式ページにアクセスして、最新の情報をご確認ください
                                     </p>
-                                    \${data.cached ? \`<p class="text-xs text-green-600 mb-4">💾 キャッシュから取得（\${data.cacheAge}分前）- API消費なし</p>\` : ''}
                                     <a href="\${data.pageUrl}" target="_blank" 
                                        class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-10 rounded-lg transition transform hover:scale-105 shadow-lg text-lg">
                                         <i class="fas fa-external-link-alt mr-2"></i>
@@ -911,16 +908,6 @@ app.get('/', (c) => {
     </html>
   `)
 })
-
-// 検索結果キャッシュ（メモリ内、Workers再起動でリセット）
-const searchCache = new Map<string, {
-  data: any;
-  timestamp: number;
-  ttl: number; // Time to live in milliseconds
-}>();
-
-// キャッシュのTTL（7日間）
-const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
 
 // 手動データベース（発見フェーズで収集したデータ - 74件）
 const manualDatabase: Record<string, any> = {
@@ -1463,33 +1450,6 @@ const searchLogs: Array<{
   error?: string
 }> = []
 
-// エラー原因を検出する関数
-function detectErrorReason(aiResponse: string): string | null {
-  const lowerResponse = aiResponse.toLowerCase();
-  
-  // パターンマッチングでエラー原因を特定
-  if (lowerResponse.includes('公式サイトが見つかりませんでした') || 
-      lowerResponse.includes('ホームページが見つかりません')) {
-    return '公式サイト（.lg.jpドメイン）が見つかりませんでした';
-  }
-  
-  if (lowerResponse.includes('アスベスト関連ページがありません') ||
-      lowerResponse.includes('アスベストに関するページが見つかりません')) {
-    return '公式サイトは見つかりましたが、アスベスト関連の専用ページがありません';
-  }
-  
-  if (lowerResponse.includes('連絡先情報が記載されていません') ||
-      lowerResponse.includes('連絡先が見つかりません')) {
-    return 'アスベストページは見つかりましたが、具体的な連絡先情報が記載されていません';
-  }
-  
-  if (lowerResponse.includes('検索結果') && lowerResponse.includes('含まれていません')) {
-    return '検索結果に該当する情報が含まれていませんでした';
-  }
-  
-  return null;
-}
-
 // AIの応答をパースして部署情報を抽出
 function parseAIResponse(aiResponse: string, city: string) {
   const departments: Array<{
@@ -1629,7 +1589,7 @@ app.delete('/api/search-logs', (c) => {
   return c.json({ message: 'ログをクリアしました' })
 })
 
-// API: 問い合わせ先検索（Perplexity APIでリアルタイム検索 + キャッシュ）
+// API: 問い合わせ先検索（Perplexity APIでリアルタイム検索）
 app.post('/api/search', async (c) => {
   const { city, inquiryType } = await c.req.json()
   
@@ -1638,20 +1598,7 @@ app.post('/api/search', async (c) => {
       return c.json({ error: '市町村名を入力してください' }, 400)
     }
     
-    // キャッシュチェック
-    const cacheKey = `search:${city}`;
-    const cached = searchCache.get(cacheKey);
-    
-    if (cached && Date.now() - cached.timestamp < cached.ttl) {
-      console.log(`🎯 キャッシュヒット: ${city}`);
-      return c.json({
-        ...cached.data,
-        cached: true,
-        cacheAge: Math.floor((Date.now() - cached.timestamp) / 1000 / 60) // 分単位
-      });
-    }
-    
-    // Perplexity APIキーを取得
+    // Perplexity APIキーを取得（デバッグ情報追加）
     const apiKey = c.env?.PERPLEXITY_API_KEY
     
     console.log('Environment check:', {
@@ -1670,38 +1617,21 @@ app.post('/api/search', async (c) => {
       }, 404)
     }
 
-    // Perplexity APIで検索（詳細情報 + エラー原因を取得）
+    // Perplexity APIで検索（詳細情報を取得）
     const prompt = `${city}の公式ホームページから、アスベスト（石綿）に関する相談・通報窓口の情報を詳しく教えてください。
 
-【検索方法】
-1. まず「${city} site:lg.jp アスベスト 相談」で検索
-2. 公式サイト内の以下のようなページを探してください：
-   - アスベスト相談窓口
-   - 石綿対策
-   - 環境保全課のアスベスト関連ページ
-   - 健康被害相談
-   - アスベスト除去工事の届出
-
 【取得してほしい情報】
-1. 公式ページのURL（.lg.jpドメイン必須）
+1. 公式ページのURL（.lg.jpドメイン）
 2. 担当部署名
-3. 電話番号（必須）
+3. 電話番号
 4. メールアドレス（あれば）
 5. 問い合わせフォームURL（あれば）
 
 【重要な指示】
-- ${city}の公式サイト（.lg.jpドメイン）を必ず確認してください
-- URLは完全な形式で記載してください（例：https://www.city.fujisawa.kanagawa.jp/gyousei/kenko/...）
 - すべての窓口情報を網羅的に記載してください
 - 複数の部署がある場合は、すべて記載してください
 - 区役所がある場合は、各区の情報も記載してください
 - 電話番号は必ず記載してください
-
-【情報が見つからない場合】
-以下のいずれかを明記してください：
-- 「公式サイトが見つかりませんでした」
-- 「公式サイトは見つかりましたが、アスベスト関連ページがありません」
-- 「アスベストページは見つかりましたが、連絡先情報が記載されていません」
 
 【回答フォーマット】
 カテゴリー: ○○○
@@ -1710,7 +1640,6 @@ app.post('/api/search', async (c) => {
 メールアドレス: xxx@example.jp
 問い合わせフォーム: https://...
 公式ページURL: https://...
-検索状況: 成功 / 失敗理由
 
 （複数ある場合は上記を繰り返し）`;
 
@@ -1725,7 +1654,7 @@ app.post('/api/search', async (c) => {
         messages: [
           {
             role: 'system',
-            content: 'あなたは日本の自治体公式サイトの情報検索に特化したアシスタントです。.lg.jpドメインの公式サイトからアスベスト（石綿）相談窓口の情報を正確に見つけ出し、URLと連絡先を詳細に回答してください。サイト内を徹底的に探索し、環境課、保健所、建築指導課など複数の関連部署も確認してください。'
+            content: 'あなたは日本の行政情報に詳しい専門アシスタントです。指定された市町村の公式サイトから、アスベスト関連の相談窓口ページのURLを正確に見つけて回答してください。URLのみを簡潔に回答してください。'
           },
           {
             role: 'user',
@@ -1735,8 +1664,7 @@ app.post('/api/search', async (c) => {
         temperature: 0.1,
         max_tokens: 2000,
         search_domain_filter: ['go.jp', 'lg.jp'],
-        return_citations: true,
-        search_recency_filter: 'month' // 最近1ヶ月のデータを優先
+        return_citations: true
       })
     })
 
@@ -1749,9 +1677,6 @@ app.post('/api/search', async (c) => {
 
     console.log(`🔍 Perplexity API検索: ${city}`)
     console.log(`📝 AI応答:\n${aiResponse}`)
-
-    // エラー原因を検出
-    const errorReason = detectErrorReason(aiResponse);
 
     // AIの応答をパースして部署情報を抽出
     const departments = parseAIResponse(aiResponse, city)
@@ -1767,27 +1692,6 @@ app.post('/api/search', async (c) => {
 
     console.log(`📄 検出されたURL: ${pageUrl}`)
     
-    // レスポンスデータを準備
-    const responseData = mergedDepartments.length > 0 ? {
-      departments: mergedDepartments,
-      pageUrl: pageUrl
-    } : {
-      error: errorReason || '窓口情報が見つかりませんでした',
-      errorDetail: errorReason ? '詳細: ' + errorReason : null,
-      department: `${city} の環境課`,
-      phone: '市役所の代表電話にお問い合わせください',
-      pageUrl: pageUrl
-    };
-    
-    // キャッシュに保存
-    searchCache.set(cacheKey, {
-      data: responseData,
-      timestamp: Date.now(),
-      ttl: CACHE_TTL
-    });
-    
-    console.log(`💾 キャッシュ保存: ${city} (7日間有効)`);
-    
     // ログを記録
     searchLogs.push({
       city,
@@ -1800,9 +1704,17 @@ app.post('/api/search', async (c) => {
     })
     
     if (mergedDepartments.length > 0) {
-      return c.json(responseData)
+      return c.json({
+        departments: mergedDepartments,
+        pageUrl: pageUrl
+      })
     } else {
-      return c.json(responseData, 404)
+      return c.json({
+        error: '窓口情報が見つかりませんでした',
+        department: `${city} の環境課`,
+        phone: '市役所の代表電話にお問い合わせください',
+        pageUrl: pageUrl
+      }, 404)
     }
     
   } catch (error) {
